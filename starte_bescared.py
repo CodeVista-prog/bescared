@@ -24,7 +24,7 @@ def starte() -> None:
             "-File",
             str(BLOODY_SCAMMER),
             "-WindowCount",
-            "1",
+            "999999999",
         ],
         check=True,
     )
