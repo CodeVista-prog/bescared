@@ -5,11 +5,47 @@ from tkinter import messagebox
 
 PASSWORD = os.getenv("LOCKSCREEN_PASSWORD", "+ä-+ä-+ä-")
 
-class LockScreen(tk.Tk):
-    def __init__(self):
+
+class RECT(ctypes.Structure):
+    _fields_ = [
+        ("left", ctypes.c_long),
+        ("top", ctypes.c_long),
+        ("right", ctypes.c_long),
+        ("bottom", ctypes.c_long),
+    ]
+
+
+def get_monitor_bounds():
+    monitors = []
+
+    def callback(h_monitor, hdc_monitor, lprc_monitor, dw_data):
+        rect = lprc_monitor.contents
+        monitors.append((rect.left, rect.top, rect.right, rect.bottom))
+        return True
+
+    monitor_enum = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p, ctypes.POINTER(RECT), ctypes.c_void_p)(callback)
+    user32 = ctypes.windll.user32
+
+    if not user32.EnumDisplayMonitors(None, None, monitor_enum, 0):
+        width = user32.GetSystemMetrics(0)
+        height = user32.GetSystemMetrics(1)
+        monitors.append((0, 0, width, height))
+
+    return monitors
+
+
+class LockScreen(tk.Toplevel):
+    def __init__(self, monitor_bounds, close_all):
         super().__init__()
+        self.close_all = close_all
+        self.is_closed = False
+        self.monitor_left, self.monitor_top, self.monitor_right, self.monitor_bottom = monitor_bounds
+        self.monitor_width = self.monitor_right - self.monitor_left
+        self.monitor_height = self.monitor_bottom - self.monitor_top
+
         self.title("Zugriff gesperrt")
-        self.attributes("-fullscreen", True)
+        self.geometry(f"{self.monitor_width}x{self.monitor_height}+{self.monitor_left}+{self.monitor_top}")
+        self.overrideredirect(True)
         self.attributes("-topmost", True)
         self.configure(bg="black")
         self.focus_force()
@@ -61,33 +97,49 @@ class LockScreen(tk.Tk):
         self.bind("<Return>", lambda event: self.check_password())
 
     def start_audio(self):
-        self.mci_send = ctypes.windll.winmm.mciSendStringW
+        try:
+            self.mci_send = ctypes.windll.winmm.mciSendStringW
+        except Exception:
+            self.audio_aliases = []
+            return
+
         self.audio_aliases = []
         audio_dir = os.path.dirname(os.path.abspath(__file__))
 
         for index, filename in enumerate(("s1.mp3", "s2.mp3", "s3.mp3")):
             path = os.path.join(audio_dir, filename)
             if not os.path.isfile(path):
-                raise FileNotFoundError(f"Audiodatei nicht gefunden: {path}")
+                continue
+
             alias = f"lockscreen_audio_{index}"
             command = f'open "{path}" type mpegvideo alias {alias}'
-            if self.mci_send(command, None, 0, None) != 0:
-                raise RuntimeError(f"Audiodatei konnte nicht geöffnet werden: {path}")
-            if self.mci_send(f"play {alias} repeat", None, 0, None) != 0:
-                raise RuntimeError(f"Audiodatei konnte nicht abgespielt werden: {path}")
-            self.audio_aliases.append(alias)
+            try:
+                if self.mci_send(command, None, 0, None) != 0:
+                    continue
+                if self.mci_send(f"play {alias} repeat", None, 0, None) != 0:
+                    self.mci_send(f"close {alias}", None, 0, None)
+                    continue
+                self.audio_aliases.append(alias)
+            except Exception:
+                continue
 
     def close_app(self):
+        if self.is_closed:
+            return
+        self.is_closed = True
+        self.close_all()
+
+    def stop_audio(self):
         for alias in getattr(self, "audio_aliases", []):
             self.mci_send(f"stop {alias}", None, 0, None)
             self.mci_send(f"close {alias}", None, 0, None)
-        self.destroy()
+        self.audio_aliases = []
 
     def center_mouse(self):
         try:
-            width = ctypes.windll.user32.GetSystemMetrics(0)
-            height = ctypes.windll.user32.GetSystemMetrics(1)
-            ctypes.windll.user32.SetCursorPos(width // 2, height // 2)
+            center_x = self.monitor_left + (self.monitor_width // 2)
+            center_y = self.monitor_top + (self.monitor_height // 2)
+            ctypes.windll.user32.SetCursorPos(center_x, center_y)
         except Exception:
             pass
         self.after(1, self.center_mouse)
@@ -97,8 +149,8 @@ class LockScreen(tk.Tk):
 
     def fake_click(self):
         try:
-            x = ctypes.windll.user32.GetSystemMetrics(0) // 2
-            y = ctypes.windll.user32.GetSystemMetrics(1) // 2
+            x = self.monitor_left + (self.monitor_width // 2)
+            y = self.monitor_top + (self.monitor_height // 2)
             ctypes.windll.user32.SetCursorPos(x, y)
             ctypes.windll.user32.mouse_event(0x0002, x, y, 0, 0)  # left down
             ctypes.windll.user32.mouse_event(0x0004, x, y, 0, 0)  # left up
@@ -132,5 +184,19 @@ class LockScreen(tk.Tk):
             self.entry.focus_set()
 
 if __name__ == "__main__":
-    app = LockScreen()
-    app.mainloop()
+    root = tk.Tk()
+    root.withdraw()
+
+    windows = []
+
+    def close_all():
+        for window in windows:
+            window.stop_audio()
+            window.destroy()
+        root.destroy()
+
+    for bounds in get_monitor_bounds():
+        window = LockScreen(bounds, close_all)
+        windows.append(window)
+
+    root.mainloop()
