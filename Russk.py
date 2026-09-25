@@ -3,7 +3,7 @@ import os
 import tkinter as tk
 from tkinter import messagebox
 
-PASSWORD = os.getenv("LOCKSCREEN_PASSWORD", "+")
+PASSWORD = os.getenv("LOCKSCREEN_PASSWORD", "+ä-+ä-+ä-")
 
 class LockScreen(tk.Tk):
     @staticmethod
@@ -33,7 +33,7 @@ class LockScreen(tk.Tk):
         self.bind("<Escape>", lambda event: "break")
         self.bind("<Alt-F4>", lambda event: "break")
         self.bind("<KeyPress>", lambda event: "break")
-
+             
         self.start_audio()
 
         self.red_mode = False
