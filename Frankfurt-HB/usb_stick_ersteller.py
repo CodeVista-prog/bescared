@@ -58,30 +58,30 @@ def list_usb_drives() -> list[Path]:
     return unique_drives
 
 
-def validate_executable(path: str | Path) -> str:
-    exe_path = Path(path).expanduser()
-    if not exe_path.exists():
-        raise FileNotFoundError(f"Executable not found: {exe_path}")
-    if exe_path.suffix.lower() != ".exe":
-        raise ValueError(f"Only .exe files are supported: {exe_path}")
-    return exe_path.name
+def validate_source_file(path: str | Path) -> str:
+    source_path = Path(path).expanduser()
+    if not source_path.exists():
+        raise FileNotFoundError(f"File not found: {source_path}")
+    if source_path.is_dir():
+        raise ValueError(f"A directory is not a valid source file: {source_path}")
+    return source_path.name
 
 
-def prepare_usb_drive(target_drive: str | Path, source_exe: str | Path, target_exe_name: str | None = None) -> dict[str, Path]:
+def prepare_usb_drive(target_drive: str | Path, source_file: str | Path, target_file_name: str | None = None) -> dict[str, Path]:
     drive_path = Path(target_drive).expanduser()
-    source_path = Path(source_exe).expanduser()
+    source_path = Path(source_file).expanduser()
 
     if not drive_path.exists():
         raise FileNotFoundError(f"USB drive does not exist: {drive_path}")
     if not source_path.exists():
-        raise FileNotFoundError(f"Executable not found: {source_path}")
+        raise FileNotFoundError(f"File not found: {source_path}")
     if drive_path.is_file():
         raise ValueError(f"USB target must be a directory: {drive_path}")
 
-    target_name = target_exe_name or validate_executable(source_path)
-    target_exe = drive_path / target_name
+    target_name = target_file_name or validate_source_file(source_path)
+    target_file = drive_path / target_name
 
-    shutil.copy2(source_path, target_exe)
+    shutil.copy2(source_path, target_file)
 
     launcher_path = drive_path / STARTER_BAT_NAME
     launcher_path.write_text(
@@ -95,19 +95,37 @@ def prepare_usb_drive(target_drive: str | Path, source_exe: str | Path, target_e
 
     config = {
         "version": 1,
+        "target_file_name": target_name,
         "target_exe_name": target_name,
         "launcher_name": STARTER_BAT_NAME,
         "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "source_exe": str(source_path),
+        "source_file": str(source_path),
     }
     config_path = drive_path / CONFIG_FILE_NAME
     config_path.write_text(json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8")
 
     return {
-        "target_exe": target_exe,
+        "target_file": target_file,
+        "target_exe": target_file,
         "launcher": launcher_path,
         "config": config_path,
     }
+
+
+def open_target_file(path: str | Path) -> None:
+    file_path = Path(path)
+    if not file_path.exists():
+        return
+
+    if os.name == "nt":
+        try:
+            os.startfile(str(file_path))
+            return
+        except (AttributeError, OSError):
+            subprocess.Popen(["cmd", "/c", "start", "", str(file_path)], cwd=str(file_path.parent), close_fds=True)
+            return
+
+    subprocess.Popen(["xdg-open", str(file_path)], cwd=str(file_path.parent), close_fds=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def launch_prepared_usb(stick_path: str | Path) -> None:
@@ -121,15 +139,18 @@ def launch_prepared_usb(stick_path: str | Path) -> None:
     except (OSError, json.JSONDecodeError):
         return
 
-    target_name = payload.get("target_exe_name")
+    target_name = payload.get("target_file_name") or payload.get("target_exe_name")
     if not target_name:
         return
 
-    target_exe = drive / target_name
-    if not target_exe.exists():
+    target_file = drive / target_name
+    if not target_file.exists():
         return
 
-    subprocess.Popen([str(target_exe)], cwd=str(drive), close_fds=True)
+    if target_file.suffix.lower() == ".exe":
+        subprocess.Popen([str(target_file)], cwd=str(drive), close_fds=True)
+    else:
+        open_target_file(target_file)
 
 
 class USBStickCreatorApp:
@@ -150,7 +171,7 @@ class USBStickCreatorApp:
         main = ttk.Frame(root, padding=12)
         main.pack(fill="both", expand=True)
 
-        ttk.Label(main, text="EXE auswählen:").grid(row=0, column=0, sticky="w", padx=(0, 8), pady=(0, 8))
+        ttk.Label(main, text="Datei auswählen:").grid(row=0, column=0, sticky="w", padx=(0, 8), pady=(0, 8))
         ttk.Entry(main, textvariable=self.selected_exe, width=52).grid(row=0, column=1, sticky="ew")
         ttk.Button(main, text="Durchsuchen", command=self.choose_exe).grid(row=0, column=2, padx=(8, 0))
 
@@ -192,7 +213,7 @@ class USBStickCreatorApp:
         )
         if file_path:
             try:
-                validate_executable(file_path)
+                validate_source_file(file_path)
             except Exception as exc:
                 messagebox.showwarning("Ungültige Datei", str(exc))
                 return
@@ -202,7 +223,7 @@ class USBStickCreatorApp:
     def create_usb(self) -> None:
         source_exe = self.selected_exe.get().strip()
         if not source_exe:
-            messagebox.showwarning("Fehlende Auswahl", "Bitte wählen Sie zuerst eine EXE-Datei aus.")
+            messagebox.showwarning("Fehlende Auswahl", "Bitte wählen Sie zuerst eine Datei aus.")
             return
 
         drive = self.selected_drive.get().strip()
@@ -211,7 +232,7 @@ class USBStickCreatorApp:
             return
 
         try:
-            validate_executable(source_exe)
+            validate_source_file(source_exe)
             prepared = prepare_usb_drive(drive, source_exe)
             self.set_status(
                 f"USB-Stick vorbereitet: {prepared['launcher']} | {prepared['config']}"

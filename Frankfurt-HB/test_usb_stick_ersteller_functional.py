@@ -16,13 +16,13 @@ def load_module():
 def test_prepare_usb_drive_creates_launcher_and_config(tmp_path):
     module = load_module()
 
-    app_path = tmp_path / "demo.exe"
-    app_path.write_bytes(b"demo")
+    app_path = tmp_path / "demo.txt"
+    app_path.write_text("hello world", encoding="utf-8")
 
     drive = tmp_path / "usb_drive"
     drive.mkdir()
 
-    prepared = module.prepare_usb_drive(drive, str(app_path), "demo.exe")
+    prepared = module.prepare_usb_drive(drive, str(app_path), "demo.txt")
 
     assert prepared["launcher"] == drive / "START_USB.bat"
     assert prepared["config"] == drive / "usb_auto_start.json"
@@ -30,5 +30,5 @@ def test_prepare_usb_drive_creates_launcher_and_config(tmp_path):
     assert (drive / "usb_auto_start.json").exists()
 
     payload = json.loads((drive / "usb_auto_start.json").read_text(encoding="utf-8"))
-    assert payload["target_exe_name"] == "demo.exe"
+    assert payload["target_exe_name"] == "demo.txt"
     assert payload["launcher_name"] == "START_USB.bat"
