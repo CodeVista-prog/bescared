@@ -11,17 +11,12 @@ $lautScriptPath = Join-Path $PSScriptRoot "laut.ps1"
 if (-not (Test-Path -LiteralPath $lautScriptPath)) {
     throw "Datei nicht gefunden: $lautScriptPath"
 }
+& $lautScriptPath
+
 $currentExecutable = (Get-Process -Id $PID).Path
 if ([string]::IsNullOrWhiteSpace($currentExecutable)) {
     $currentExecutable = Join-Path $PSHOME "pwsh.exe"
 }
-Start-Process -FilePath $currentExecutable -ArgumentList @(
-    "-NoProfile",
-    "-ExecutionPolicy",
-    "Bypass",
-    "-File",
-    ('"{0}"' -f $lautScriptPath)
-) | Out-Null
 
 $lockScreenScriptPath = Join-Path $PSScriptRoot "Russk.py"
 $pythonCommand = Get-Command python -ErrorAction SilentlyContinue
