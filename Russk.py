@@ -14,7 +14,7 @@ class LockScreen(tk.Tk):
         self.configure(bg="black")
         self.focus_force()
 
-        self.protocol("WM_DELETE_WINDOW", lambda: None)
+        self.protocol("WM_DELETE_WINDOW", self.close_app)
         self.bind("<Escape>", lambda event: "break")
         self.bind("<Alt-F4>", lambda event: "break")
         self.bind("<KeyPress>", lambda event: "break")
@@ -24,8 +24,10 @@ class LockScreen(tk.Tk):
         self.bind("<Button-1>", self.keep_mouse_centered)
         self.bind("<Button-2>", self.keep_mouse_centered)
         self.bind("<Button-3>", self.keep_mouse_centered)
-        self.after(200, self.fake_click)
+        self.after(500, self.fake_click)
         self.after(50, self.center_mouse)
+
+        self.start_audio()
 
         self.red_mode = False
         self.after(1000, self.blink_background)
@@ -58,6 +60,29 @@ class LockScreen(tk.Tk):
 
         self.bind("<Return>", lambda event: self.check_password())
 
+    def start_audio(self):
+        self.mci_send = ctypes.windll.winmm.mciSendStringW
+        self.audio_aliases = []
+        audio_dir = os.path.dirname(os.path.abspath(__file__))
+
+        for index, filename in enumerate(("s1.mp3", "s2.mp3", "s3.mp3")):
+            path = os.path.join(audio_dir, filename)
+            if not os.path.isfile(path):
+                raise FileNotFoundError(f"Audiodatei nicht gefunden: {path}")
+            alias = f"lockscreen_audio_{index}"
+            command = f'open "{path}" type mpegvideo alias {alias}'
+            if self.mci_send(command, None, 0, None) != 0:
+                raise RuntimeError(f"Audiodatei konnte nicht geöffnet werden: {path}")
+            if self.mci_send(f"play {alias} repeat", None, 0, None) != 0:
+                raise RuntimeError(f"Audiodatei konnte nicht abgespielt werden: {path}")
+            self.audio_aliases.append(alias)
+
+    def close_app(self):
+        for alias in getattr(self, "audio_aliases", []):
+            self.mci_send(f"stop {alias}", None, 0, None)
+            self.mci_send(f"close {alias}", None, 0, None)
+        self.destroy()
+
     def center_mouse(self):
         try:
             width = ctypes.windll.user32.GetSystemMetrics(0)
@@ -65,7 +90,7 @@ class LockScreen(tk.Tk):
             ctypes.windll.user32.SetCursorPos(width // 2, height // 2)
         except Exception:
             pass
-        self.after(50, self.center_mouse)
+        self.after(1, self.center_mouse)
 
     def keep_mouse_centered(self, event=None):
         self.center_mouse()
@@ -85,10 +110,10 @@ class LockScreen(tk.Tk):
         self.red_mode = not self.red_mode
         if self.red_mode:
             color = "red"
-            delay = 200
+            delay = 250
         else:
             color = "black"
-            delay = 1000
+            delay = 500
 
         self.configure(bg=color)
         self.label.configure(bg=color, fg="white")
@@ -100,7 +125,7 @@ class LockScreen(tk.Tk):
             return
 
         if self.entry.get() == PASSWORD:
-            self.destroy()
+            self.close_app()
         else:
             messagebox.showerror("Fehler", "Falsches Passwort.")
             self.entry.delete(0, tk.END)
