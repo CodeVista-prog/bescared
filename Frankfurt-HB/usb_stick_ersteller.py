@@ -16,6 +16,13 @@ STARTER_BAT_NAME = "START_USB.bat"
 CONFIG_FILE_NAME = "usb_auto_start.json"
 
 
+def _safe_drive_root(path: str | Path) -> Path:
+    drive = Path(path)
+    if drive.name == "":
+        drive = drive.parent
+    return drive.anchor and drive or drive.resolve()
+
+
 def list_usb_drives() -> list[Path]:
     if os.name != "nt":
         return []
@@ -41,20 +48,39 @@ def list_usb_drives() -> list[Path]:
         if drive_type in (2, 3, 4, 5):
             drives.append(drive)
 
-    return drives
+    unique_drives = []
+    seen = set()
+    for drive in drives:
+        key = str(drive).upper()
+        if key not in seen:
+            seen.add(key)
+            unique_drives.append(drive)
+    return unique_drives
+
+
+def validate_executable(path: str | Path) -> str:
+    exe_path = Path(path).expanduser()
+    if not exe_path.exists():
+        raise FileNotFoundError(f"Executable not found: {exe_path}")
+    if exe_path.suffix.lower() != ".exe":
+        raise ValueError(f"Only .exe files are supported: {exe_path}")
+    return exe_path.name
 
 
 def prepare_usb_drive(target_drive: str | Path, source_exe: str | Path, target_exe_name: str | None = None) -> dict[str, Path]:
-    drive_path = Path(target_drive)
-    source_path = Path(source_exe)
+    drive_path = Path(target_drive).expanduser()
+    source_path = Path(source_exe).expanduser()
 
     if not drive_path.exists():
         raise FileNotFoundError(f"USB drive does not exist: {drive_path}")
     if not source_path.exists():
         raise FileNotFoundError(f"Executable not found: {source_path}")
+    if drive_path.is_file():
+        raise ValueError(f"USB target must be a directory: {drive_path}")
 
-    target_name = target_exe_name or source_path.name
+    target_name = target_exe_name or validate_executable(source_path)
     target_exe = drive_path / target_name
+
     shutil.copy2(source_path, target_exe)
 
     launcher_path = drive_path / STARTER_BAT_NAME
@@ -92,7 +118,7 @@ def launch_prepared_usb(stick_path: str | Path) -> None:
 
     try:
         payload = json.loads(config_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
+    except (OSError, json.JSONDecodeError):
         return
 
     target_name = payload.get("target_exe_name")
@@ -100,8 +126,10 @@ def launch_prepared_usb(stick_path: str | Path) -> None:
         return
 
     target_exe = drive / target_name
-    if target_exe.exists():
-        subprocess.Popen([str(target_exe)], cwd=str(drive), shell=True)
+    if not target_exe.exists():
+        return
+
+    subprocess.Popen([str(target_exe)], cwd=str(drive), close_fds=True)
 
 
 class USBStickCreatorApp:
@@ -117,6 +145,7 @@ class USBStickCreatorApp:
 
         self.stop_event = threading.Event()
         self.monitoring = False
+        self._monitor_seen: set[str] = set()
 
         main = ttk.Frame(root, padding=12)
         main.pack(fill="both", expand=True)
@@ -142,6 +171,11 @@ class USBStickCreatorApp:
         main.columnconfigure(1, weight=1)
         self.refresh_drives()
 
+    def set_status(self, message: str, is_error: bool = False) -> None:
+        self.status_text.set(message)
+        if is_error:
+            self.root.update_idletasks()
+
     def refresh_drives(self) -> None:
         drives = [str(path) for path in list_usb_drives()]
         self.drive_combo['values'] = drives
@@ -157,8 +191,13 @@ class USBStickCreatorApp:
             filetypes=[("Ausführbare Dateien", "*.exe"), ("Alle Dateien", "*.*")],
         )
         if file_path:
+            try:
+                validate_executable(file_path)
+            except Exception as exc:
+                messagebox.showwarning("Ungültige Datei", str(exc))
+                return
             self.selected_exe.set(file_path)
-            self.status_text.set(f"Datei ausgewählt: {file_path}")
+            self.set_status(f"Datei ausgewählt: {file_path}")
 
     def create_usb(self) -> None:
         source_exe = self.selected_exe.get().strip()
@@ -172,14 +211,15 @@ class USBStickCreatorApp:
             return
 
         try:
+            validate_executable(source_exe)
             prepared = prepare_usb_drive(drive, source_exe)
-            self.status_text.set(
+            self.set_status(
                 f"USB-Stick vorbereitet: {prepared['launcher']} | {prepared['config']}"
             )
             messagebox.showinfo("Erfolgreich", f"Der USB-Stick wurde vorbereitet:\n{drive}")
         except Exception as exc:  # pragma: no cover - GUI error path
             messagebox.showerror("Fehler", str(exc))
-            self.status_text.set(f"Fehler: {exc}")
+            self.set_status(f"Fehler: {exc}", is_error=True)
 
     def start_monitoring(self) -> None:
         if self.monitoring:
@@ -187,33 +227,32 @@ class USBStickCreatorApp:
 
         self.monitoring = True
         self.stop_event.clear()
-        self.status_text.set("Überwachung gestartet.")
+        self.set_status("Überwachung gestartet.")
         threading.Thread(target=self._monitor_loop, daemon=True).start()
 
     def stop_monitoring(self) -> None:
         self.monitoring = False
         self.stop_event.set()
-        self.status_text.set("Überwachung gestoppt.")
+        self.set_status("Überwachung gestoppt.")
 
     def _monitor_loop(self) -> None:
-        seen: set[str] = set()
         while not self.stop_event.is_set():
-            for drive in list_usb_drives():
-                drive_key = str(drive)
+            current_drives = {str(path).upper(): path for path in list_usb_drives()}
+            for drive_key, drive in current_drives.items():
                 if (drive / CONFIG_FILE_NAME).exists():
-                    if drive_key not in seen:
-                        seen.add(drive_key)
+                    if drive_key not in self._monitor_seen:
+                        self._monitor_seen.add(drive_key)
                         self.root.after(0, self._handle_detected_drive, drive)
                 else:
-                    seen.discard(drive_key)
+                    self._monitor_seen.discard(drive_key)
             time.sleep(1)
 
     def _handle_detected_drive(self, drive: Path) -> None:
         try:
             launch_prepared_usb(drive)
-            self.status_text.set(f"Vorbereiteter Stick erkannt: {drive}")
+            self.set_status(f"Vorbereiteter Stick erkannt: {drive}")
         except Exception as exc:  # pragma: no cover - GUI error path
-            self.status_text.set(f"Fehler beim Start: {exc}")
+            self.set_status(f"Fehler beim Start: {exc}", is_error=True)
 
 
 def main() -> None:
