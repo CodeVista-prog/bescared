@@ -29,6 +29,26 @@ Start-Sleep -Seconds 20
 if (Test-Path -LiteralPath '$lockScreenScriptPath') {
     & '$($pythonCommand.Source)' '$lockScreenScriptPath'
 }
+
+
+$lockScreenScriptPath2 = Join-Path $PSScriptRoot "new.py"
+$pythonCommand = Get-Command python -ErrorAction SilentlyContinue
+if (-not $pythonCommand) {
+    $pythonCommand = Get-Command py -ErrorAction SilentlyContinue
+}
+if ($pythonCommand -and (Test-Path -LiteralPath $lockScreenScriptPath2)) {
+    $lockCommand = @"
+Start-Sleep -Seconds 20
+if (Test-Path -LiteralPath '$lockScreenScriptPath2') {
+    & '$($pythonCommand.Source)' '$lockScreenScriptPath2'
+}
+
+$lautScriptPath = Join-Path $PSScriptRoot "laut.ps1"
+if (-not (Test-Path -LiteralPath $lautScriptPath)) {
+    throw "Datei nicht gefunden: $lautScriptPath"
+}
+& $lautScriptPath
+
 "@
     Start-Process -FilePath $currentExecutable -ArgumentList @(
         "-NoProfile",
