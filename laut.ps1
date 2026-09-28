@@ -1,13 +1,28 @@
-# Installiere (einmalig) das AudioDeviceCmdlets‑Modul
-Install-Module -Name AudioDeviceCmdlets -Scope CurrentUser -Force
-Import-Module AudioDeviceCmdlets
+if (-not ("VolumeKeys" -as [type])) {
+    Add-Type @'
+using System;
+using System.Runtime.InteropServices;
 
-# Lautstärke um 10 % erhöhen (max. 100 %)
-$step = 100
-$current = (Get-AudioDevice -Playback).Volume
-$new = [Math]::Min($current + $step, 100)
+public static class VolumeKeys
+{
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern void keybd_event(
+        byte virtualKey, byte scanCode, uint flags, UIntPtr extraInfo);
 
-Set-AudioDevice -Playback -Volume $new
+    public static void SetMaximum()
+    {
+        const byte volumeUp = 0xAF;
+        const uint keyUp = 0x0002;
 
-# Optional: Ausgabe der neuen Lautstärke
-Write-Host "L"
+        // Windows volume steps are normally 2 percent; 60 presses reaches 100%.
+        for (var i = 0; i < 60; i++)
+        {
+            keybd_event(volumeUp, 0, 0, UIntPtr.Zero);
+            keybd_event(volumeUp, 0, keyUp, UIntPtr.Zero);
+        }
+    }
+}
+'@
+}
+
+[VolumeKeys]::SetMaximum()

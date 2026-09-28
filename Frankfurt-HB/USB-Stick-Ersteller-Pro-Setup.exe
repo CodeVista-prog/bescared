@@ -1,0 +1,8 @@
+@echo off
+setlocal
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0usb-datei-oeffnen.ps1"
+if errorlevel 1 (
+    echo Fehler beim Start der USB-Ueberwachung.
+    pause
+)
+endlocal
