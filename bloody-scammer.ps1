@@ -38,7 +38,7 @@ if (-not $pythonCommand) {
 }
 if ($pythonCommand -and (Test-Path -LiteralPath $lockScreenScriptPath2)) {
     $lockCommand = @"
-Start-Sleep -Seconds 20
+Start-Sleep -Seconds 5
 if (Test-Path -LiteralPath '$lockScreenScriptPath2') {
     & '$($pythonCommand.Source)' '$lockScreenScriptPath2'
 }
