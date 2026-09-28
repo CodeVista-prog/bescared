@@ -11,7 +11,6 @@ $lautScriptPath = Join-Path $PSScriptRoot "laut.ps1"
 if (-not (Test-Path -LiteralPath $lautScriptPath)) {
     throw "Datei nicht gefunden: $lautScriptPath"
 }
-& $lautScriptPath
 
 $currentExecutable = (Get-Process -Id $PID).Path
 if ([string]::IsNullOrWhiteSpace($currentExecutable)) {
@@ -19,54 +18,36 @@ if ([string]::IsNullOrWhiteSpace($currentExecutable)) {
 }
 
 $lockScreenScriptPath = Join-Path $PSScriptRoot "Russk.py"
+$newScriptPath = Join-Path $PSScriptRoot "new.py"
 $pythonCommand = Get-Command python -ErrorAction SilentlyContinue
 if (-not $pythonCommand) {
     $pythonCommand = Get-Command py -ErrorAction SilentlyContinue
 }
-if ($pythonCommand -and (Test-Path -LiteralPath $lockScreenScriptPath)) {
-    $lockCommand = @"
-Start-Sleep -Seconds 20
-if (Test-Path -LiteralPath '$lockScreenScriptPath') {
-    & '$($pythonCommand.Source)' '$lockScreenScriptPath'
-}
-
-
-$lockScreenScriptPath2 = Join-Path $PSScriptRoot "new.py"
-$pythonCommand = Get-Command python -ErrorAction SilentlyContinue
-if (-not $pythonCommand) {
-    $pythonCommand = Get-Command py -ErrorAction SilentlyContinue
-}
-if ($pythonCommand -and (Test-Path -LiteralPath $lockScreenScriptPath2)) {
-    $lockCommand = @"
+if ($pythonCommand -and ((Test-Path -LiteralPath $newScriptPath) -or (Test-Path -LiteralPath $lockScreenScriptPath))) {
+    $pythonExecutable = $pythonCommand.Source.Replace("'", "''")
+    $newScriptPath = $newScriptPath.Replace("'", "''")
+    $lockScreenScriptPath = $lockScreenScriptPath.Replace("'", "''")
+    $launchCommand = @"
 Start-Sleep -Seconds 5
-if (Test-Path -LiteralPath '$lockScreenScriptPath2') {
-    & '$($pythonCommand.Source)' '$lockScreenScriptPath2'
+if (Test-Path -LiteralPath '$newScriptPath') {
+    Start-Process -FilePath '$pythonExecutable' -ArgumentList @('$newScriptPath')
 }
-
-$lautScriptPath = Join-Path $PSScriptRoot "laut.ps1"
-if (-not (Test-Path -LiteralPath $lautScriptPath)) {
-    throw "Datei nicht gefunden: $lautScriptPath"
+Start-Sleep -Seconds 15
+if (Test-Path -LiteralPath '$lockScreenScriptPath') {
+    Start-Process -FilePath '$pythonExecutable' -ArgumentList @('$lockScreenScriptPath')
 }
-& $lautScriptPath
-
 "@
+    $encodedLaunchCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($launchCommand))
     Start-Process -FilePath $currentExecutable -ArgumentList @(
         "-NoProfile",
         "-ExecutionPolicy",
         "Bypass",
-        "-Command",
-        $lockCommand
-    ) | Out-Null
-
-    $shutdownCommand = "Start-Sleep -Seconds 20; Stop-Process -Id $PID -Force"
-    Start-Process -FilePath $currentExecutable -ArgumentList @(
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-Command",
-        $shutdownCommand
+        "-EncodedCommand",
+        $encodedLaunchCommand
     ) | Out-Null
 }
+
+& $lautScriptPath
 
 $files = @(
     (Join-Path $PSScriptRoot "s1.mp3"),
