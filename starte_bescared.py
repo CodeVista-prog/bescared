@@ -35,7 +35,7 @@ def starte() -> None:
                 "-File",
                 str(BLOODY_SCAMMER),
                 "-WindowCount",
-                "999999999",
+                "9999",
             ],
             check=True,
         )
@@ -44,7 +44,7 @@ def starte() -> None:
     if NEW_SCRIPT.is_file():
         subprocess.Popen([sys.executable, str(NEW_SCRIPT)])
 
-    time.sleep(10)
+    time.sleep(15)
     if RUSSK_SCRIPT.is_file():
         subprocess.Popen([sys.executable, str(RUSSK_SCRIPT)])
 
