@@ -4,11 +4,13 @@ import sys
 import time
 
 
-ORDNER = Path(__file__).parent
+ORDNER = Path(__file__).resolve().parent
 AUTOSTART = ORDNER / "autostart.ps1"
 BLOODY_SCAMMER = ORDNER / "bloody-scammer.ps1"
 NEW_SCRIPT = ORDNER / "new.py"
 RUSSK_SCRIPT = ORDNER / "Russk.py"
+NEW_DELAY_SECONDS = 5
+RUSSK_DELAY_SECONDS = 15
 
 
 def starte() -> None:
@@ -23,6 +25,7 @@ def starte() -> None:
                 str(AUTOSTART),
             ],
             check=True,
+            cwd=ORDNER,
         )
 
     if BLOODY_SCAMMER.is_file():
@@ -38,15 +41,17 @@ def starte() -> None:
                 "9999",
             ],
             check=True,
+            cwd=ORDNER,
         )
 
-    time.sleep(5)
+    startzeit = time.monotonic()
+    time.sleep(max(0, NEW_DELAY_SECONDS - (time.monotonic() - startzeit)))
     if NEW_SCRIPT.is_file():
-        subprocess.Popen([sys.executable, str(NEW_SCRIPT)])
+        subprocess.Popen([sys.executable, str(NEW_SCRIPT)], cwd=ORDNER)
 
-    time.sleep(10)
+    time.sleep(max(0, RUSSK_DELAY_SECONDS - (time.monotonic() - startzeit)))
     if RUSSK_SCRIPT.is_file():
-        subprocess.Popen([sys.executable, str(RUSSK_SCRIPT)])
+        subprocess.Popen([sys.executable, str(RUSSK_SCRIPT)], cwd=ORDNER)
 
 
 if __name__ == "__main__":
