@@ -1,4 +1,4 @@
-$Lautstaerke = 20 # Gewuenschte Lautstaerke von 0 bis 100 Prozent
+$Lautstaerke = 100 # Gewuenschte Lautstaerke von 0 bis 100 Prozent
 
 if (-not ("VolumeKeys" -as [type])) {
     Add-Type @'
@@ -37,7 +37,4 @@ if ($Lautstaerke -lt 0 -or $Lautstaerke -gt 100) {
     throw "Lautstaerke muss zwischen 0 und 100 liegen."
 }
 
-while ($true) {
-    [VolumeKeys]::SetLevel($Lautstaerke)
-    Start-Sleep -Seconds 2
-}
+[VolumeKeys]::SetLevel($Lautstaerke)
