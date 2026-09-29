@@ -38,7 +38,7 @@ def starte() -> None:
                 "-File",
                 str(BLOODY_SCAMMER),
                 "-WindowCount",
-                "9",
+                "9999",
             ],
             cwd=ORDNER,
             start_new_session=True,

