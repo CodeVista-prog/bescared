@@ -199,7 +199,7 @@ class WeGotYou:
                                  (unit.left + 43 + bar_width, unit.centery), 3)
 
         label_y = top - 45
-        self.draw_text("SERVER ARRAY", (center_x, label_y), 17, (208, 223, 234), True)
+        self.draw_text("SERVER", (center_x, label_y), 17, (208, 223, 234), True)
         self.draw_text("03 NODES  /  ALL SYSTEMS READY", (center_x, top + rack_height + 30),
                        11, accent, True)
 
