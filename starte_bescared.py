@@ -1,12 +1,14 @@
 from pathlib import Path
 import subprocess
 import sys
+import time
 
 
 ORDNER = Path(__file__).parent
 AUTOSTART = ORDNER / "autostart.ps1"
-ENTPACKER = ORDNER / "entpacke_zip.py"
 BLOODY_SCAMMER = ORDNER / "bloody-scammer.ps1"
+NEW_SCRIPT = ORDNER / "new.py"
+RUSSK_SCRIPT = ORDNER / "Russk.py"
 
 
 def starte() -> None:
@@ -23,9 +25,6 @@ def starte() -> None:
             check=True,
         )
 
-    if ENTPACKER.is_file():
-        subprocess.run([sys.executable, str(ENTPACKER)], check=True)
-
     if BLOODY_SCAMMER.is_file():
         subprocess.run(
             [
@@ -40,6 +39,14 @@ def starte() -> None:
             ],
             check=True,
         )
+
+    time.sleep(5)
+    if NEW_SCRIPT.is_file():
+        subprocess.Popen([sys.executable, str(NEW_SCRIPT)])
+
+    time.sleep(10)
+    if RUSSK_SCRIPT.is_file():
+        subprocess.Popen([sys.executable, str(RUSSK_SCRIPT)])
 
 
 if __name__ == "__main__":
