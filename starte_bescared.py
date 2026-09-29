@@ -6,11 +6,11 @@ import time
 
 ORDNER = Path(__file__).resolve().parent
 AUTOSTART = ORDNER / "autostart.ps1"
-BLOODY_SCAMMER = ORDNER / "bloodyscamer.ps1"
+BLOODY_SCAMMER = ORDNER / "we_got_you.py"
 NEW_SCRIPT = ORDNER / "new.py"
 RUSSK_SCRIPT = ORDNER / "Russk.py"
-NEW_DELAY_SECONDS = 5
-RUSSK_DELAY_SECONDS = 15
+NEW_DELAY_SECONDS = 7
+RUSSK_DELAY_SECONDS = 17
 
 
 def starte() -> None:
