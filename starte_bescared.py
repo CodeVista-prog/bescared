@@ -13,7 +13,7 @@ NEW_DELAY_SECONDS = 5
 RUSSK_DELAY_SECONDS = 15
 
 
-# def starte() -> None:
+def starte() -> None:
 #     if AUTOSTART.is_file():
 #         subprocess.run(
 #             [
@@ -29,7 +29,7 @@ RUSSK_DELAY_SECONDS = 15
 #         )
 
     if BLOODY_SCAMMER.is_file():
-        subprocess.run(
+        subprocess.Popen(
             [
                 "powershell.exe",
                 "-NoProfile",
@@ -38,10 +38,10 @@ RUSSK_DELAY_SECONDS = 15
                 "-File",
                 str(BLOODY_SCAMMER),
                 "-WindowCount",
-                "9999",
+                "9",
             ],
-            check=True,
             cwd=ORDNER,
+            start_new_session=True,
         )
 
     startzeit = time.monotonic()
