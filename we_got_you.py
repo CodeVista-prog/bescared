@@ -74,7 +74,7 @@ class WeGotYou:
         self.avatar_queue = queue.Queue()
         self.fonts = {}
         self.stars = [
-            [random.random(), random.random(), random.uniform(0.025, 0.11), random.random() * math.tau]
+            [random.random(), random.random(), random.uniform(0.07, 0.22), random.random() * math.tau]
             for _ in range(85)
         ]
         for profile in PROFILES:
@@ -105,7 +105,7 @@ class WeGotYou:
         tint = rgb(profile["glow"])
         self.screen.fill((7, 10, 14))
         for band in range(12):
-            offset = math.sin(self.phase * 0.24 + band * 0.65) * 34
+            offset = math.sin(self.phase * 0.24 + band * 0.65) * 52
             y = int((self.height * (band + 0.3) / 12 + offset) % self.height)
             color = tuple(int(channel * 0.2) for channel in tint)
             pygame.draw.line(self.screen, color, (0, y), (self.width, y - self.height // 10), 1)
@@ -173,7 +173,7 @@ class WeGotYou:
             x1 = left + rack_width + link * (rack_width + gap)
             pygame.draw.line(self.screen, glow, (x1, top + 35), (x1 + gap, top + 35), 2)
             for packet in range(3):
-                progress = (self.phase * 0.48 + packet / 3 + link * 0.5) % 1.0
+                progress = (self.phase * 0.7 + packet / 3 + link * 0.5) % 1.0
                 packet_x = int(x1 + progress * gap)
                 pygame.draw.circle(self.screen, accent, (packet_x, top + 35), 3)
 
@@ -299,7 +299,7 @@ class WeGotYou:
                        11, (132, 215, 159), True)
 
     def draw(self, delta):
-        scene_duration = 8.4
+        scene_duration = 7.8
         scene_index = int(self.phase / scene_duration) % len(PROFILES)
         scene_time = self.phase % scene_duration
         profile = PROFILES[scene_index]
@@ -328,7 +328,7 @@ class WeGotYou:
                                (self.width // 2 + (dot_index - 1) * 18, dots_y),
                                4 if dot_index == scene_index else 2)
 
-        fade_duration = 0.65
+        fade_duration = 0.45
         fade = min(1.0, scene_time / fade_duration, (scene_duration - scene_time) / fade_duration)
         if fade < 1.0:
             overlay = pygame.Surface((self.width, self.height))
@@ -336,7 +336,7 @@ class WeGotYou:
             overlay.set_alpha(int((1.0 - fade) * 255))
             self.screen.blit(overlay, (0, 0))
 
-        self.phase += delta
+        self.phase += delta * 1.2
 
     def run(self):
         while self.running:

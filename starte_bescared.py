@@ -30,16 +30,7 @@ def starte() -> None:
 
     if BLOODY_SCAMMER.is_file():
         subprocess.Popen(
-            [
-                "powershell.exe",
-                "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-                str(BLOODY_SCAMMER),
-                "-WindowCount",
-                "9999",
-            ],
+            [sys.executable, str(BLOODY_SCAMMER)],
             cwd=ORDNER,
             start_new_session=True,
         )

