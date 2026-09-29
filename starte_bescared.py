@@ -44,7 +44,7 @@ def starte() -> None:
     if NEW_SCRIPT.is_file():
         subprocess.Popen([sys.executable, str(NEW_SCRIPT)])
 
-    time.sleep(15)
+    time.sleep(10)
     if RUSSK_SCRIPT.is_file():
         subprocess.Popen([sys.executable, str(RUSSK_SCRIPT)])
 
