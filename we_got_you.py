@@ -336,7 +336,7 @@ class WeGotYou:
             overlay.set_alpha(int((1.0 - fade) * 255))
             self.screen.blit(overlay, (0, 0))
 
-        self.phase += delta * 1.2
+        self.phase += delta * 2.4
 
     def run(self):
         while self.running:
