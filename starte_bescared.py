@@ -6,7 +6,7 @@ import time
 
 ORDNER = Path(__file__).resolve().parent
 AUTOSTART = ORDNER / "autostart.ps1"
-BLOODY_SCAMMER = ORDNER / "bloody-scammer.ps1"
+BLOODY_SCAMMER = ORDNER / "bloodyscamer.ps1"
 NEW_SCRIPT = ORDNER / "new.py"
 RUSSK_SCRIPT = ORDNER / "Russk.py"
 NEW_DELAY_SECONDS = 5
