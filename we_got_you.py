@@ -35,6 +35,7 @@ PROFILES = [
 ]
 
 BACKGROUND = (8, 12, 17)
+SCENE_DURATION = 7.8
 
 
 def rgb(hex_color):
@@ -299,7 +300,7 @@ class WeGotYou:
                        11, (132, 215, 159), True)
 
     def draw(self, delta):
-        scene_duration = 7.8
+        scene_duration = SCENE_DURATION
         scene_index = int(self.phase / scene_duration) % len(PROFILES)
         scene_time = self.phase % scene_duration
         profile = PROFILES[scene_index]
@@ -349,6 +350,8 @@ class WeGotYou:
             self.collect_avatars()
             self.draw(delta)
             pygame.display.flip()
+            if self.phase >= SCENE_DURATION * len(PROFILES):
+                self.running = False
         pygame.quit()
 
 
