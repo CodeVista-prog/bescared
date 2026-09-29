@@ -5,10 +5,11 @@ from pathlib import Path
 import random
 import threading
 import tkinter as tk
+import importlib
 from urllib.request import urlopen
 
 try:
-	import pygame
+	pygame = importlib.import_module("pygame")
 except ImportError:
 	pygame = None
 
