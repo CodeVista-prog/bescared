@@ -37,4 +37,7 @@ if ($Lautstaerke -lt 0 -or $Lautstaerke -gt 100) {
     throw "Lautstaerke muss zwischen 0 und 100 liegen."
 }
 
-[VolumeKeys]::SetLevel($Lautstaerke)
+while ($true) {
+    [VolumeKeys]::SetLevel($Lautstaerke)
+    Start-Sleep -Seconds 2
+}
