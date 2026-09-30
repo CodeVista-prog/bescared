@@ -32,7 +32,7 @@ def starte() -> None:
 
     if BLOODY_SCAMMER.is_file():
         subprocess.run(
-            python_command(BLOODY_SCAMMER),
+            ["py", "-3.11", str(BLOODY_SCAMMER)],
             cwd=ORDNER,
             check=True,
         )
