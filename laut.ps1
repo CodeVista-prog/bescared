@@ -1,4 +1,4 @@
-$Lautstaerke = 100 # Gewuenschte Lautstaerke von 0 bis 100 Prozent
+$Lautstaerke = 00 # Gewuenschte Lautstaerke von 0 bis 100 Prozent
 
 if (-not ("VolumeKeys" -as [type])) {
     Add-Type @'
