@@ -43,7 +43,7 @@ def starte() -> None:
 
     if BLOODY_SCAMMER.is_file():
         subprocess.Popen(
-            [sys.executable, str(BLOODY_SCAMMER)],
+            ["py", "-3.11", str(BLOODY_SCAMMER)],
             cwd=ORDNER,
             start_new_session=True,
             **hidden_process_options(),
