@@ -419,7 +419,12 @@ class WeGotYou:
             pygame.draw.circle(self.screen, (255, 83, 66), (px, py), 2 + particle % 2)
 
         bob = math.sin(self.phase * 1.8) * radius * 0.08
-        mascot_center = (int(center_x + radius * 0.93), int(center_y + radius * 0.48 + bob))
+        jerk_offsets = (-0.28, 0.26, 0.38, -0.18, -0.36, 0.12)
+        jerk = jerk_offsets[int(self.phase * 5) % len(jerk_offsets)]
+        mascot_center = (
+            int(center_x + radius * (0.93 + jerk)),
+            int(center_y + radius * 0.48 + bob),
+        )
         self.draw_mascot(mascot_center, max(34, int(radius * 0.46)))
         self.draw_text("NO EXIT FOUND", (center_x, center_y + radius + 64),
                    11, (241, 125, 111), True)
