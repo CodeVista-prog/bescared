@@ -29,22 +29,22 @@ PROFILES = [
         "name": "Server-Tec",
         "handle": "@Server-Tec",
         "username": "Server-Tec",
-        "color": "#75b9ed",
-        "glow": "#315f87",
+        "color": "#f05a57",
+        "glow": "#681d27",
     },
     {
         "name": "CodeVista-prog",
         "handle": "@CodeVista-prog",
         "username": "CodeVista-prog",
-        "color": "#a9c1d2",
-        "glow": "#536c80",
+        "color": "#ff9d52",
+        "glow": "#71351f",
     },
     {
         "name": "Rigmon840",
         "handle": "@Rigmon840",
         "username": "Rigmon840",
-        "color": "#71e5a0",
-        "glow": "#27714e",
+        "color": "#ff303d",
+        "glow": "#7d101d",
     },
 ]
 
@@ -144,11 +144,11 @@ class WeGotYou:
         """Draw the animated background using the current profile colors."""
         accent = rgb(profile["color"])
         tint = rgb(profile["glow"])
-        self.screen.fill((7, 10, 14))
+        self.screen.fill((8, 7, 10))
         for band in range(12):
             offset = math.sin(self.phase * 0.24 + band * 0.65) * 52
             y = int((self.height * (band + 0.3) / 12 + offset) % self.height)
-            color = tuple(int(channel * 0.2) for channel in tint)
+            color = tuple(int(channel * 0.24) for channel in tint)
             pygame.draw.line(self.screen, color, (0, y), (self.width, y - self.height // 10), 1)
 
         for star in self.stars:
@@ -269,8 +269,8 @@ class WeGotYou:
                                  (unit.left + 43 + bar_width, unit.centery), 3)
 
         label_y = top - 45
-        self.draw_text("SERVER", (center_x, label_y), 17, (208, 223, 234), True)
-        self.draw_text("03 NODES  /  ALL SYSTEMS READY", (center_x, top + rack_height + 30),
+        self.draw_text("SURVEILLANCE ACTIVE", (center_x, label_y), 17, (232, 204, 204), True)
+        self.draw_text("CAMERAS 03  /  MOVEMENT DETECTED", (center_x, top + rack_height + 30),
                        11, accent, True)
 
     def draw_code_scene(self, center, scene_time):
@@ -279,10 +279,15 @@ class WeGotYou:
         accent = rgb(PROFILES[1]["color"])
         panel_width = min(int(self.width * 0.55), 850)
         panel_height = min(int(self.height * 0.52), 430)
+        breach = max(0.0, min(1.0, (scene_time - 2.0) / 2.2))
+        shake = int(breach * 5)
+        center_x += int(math.sin(scene_time * 31) * shake)
+        center_y += int(math.cos(scene_time * 27) * shake)
         panel = pygame.Rect(0, 0, panel_width, panel_height)
         panel.center = (center_x, center_y)
-        pygame.draw.rect(self.screen, (9, 14, 19), panel, border_radius=12)
-        pygame.draw.rect(self.screen, (59, 78, 92), panel, width=1, border_radius=12)
+        pygame.draw.rect(self.screen, (12, 8, 12), panel, border_radius=12)
+        pygame.draw.rect(self.screen, (150, 42, 43) if breach else (79, 54, 58),
+                         panel, width=2 if breach else 1, border_radius=12)
 
         pygame.draw.line(self.screen, (37, 49, 59), (panel.left, panel.top + 48),
                          (panel.right, panel.top + 48), 1)
@@ -293,11 +298,12 @@ class WeGotYou:
                 (panel.left + 23 + dot_index * 19, panel.top + 24),
                 5,
             )
-        self.draw_text("CODEVISTA  /  SUPPORT.PY", (panel.centerx, panel.top + 24),
-                       12, (135, 157, 172), True)
+        header = "CONNECTION BREACHED" if breach > 0.55 else "REMOTE TRACE  /  TARGET.PY"
+        self.draw_text(header, (panel.centerx, panel.top + 24),
+                   12, (255, 97, 83) if breach > 0.55 else (164, 130, 135), True)
 
-        code = 'print("We got you")'
-        typed_count = min(len(code), max(0, int(max(0, scene_time - 0.8) * 8)))
+        code = 'trace("YOU")'
+        typed_count = min(len(code), max(0, int(max(0, scene_time - 0.35) * 15)))
         typed = code[:typed_count]
         code_x = panel.left + 48
         code_y = panel.top + 120
@@ -305,7 +311,7 @@ class WeGotYou:
         line_number = self.font(16).render("01", True, (83, 103, 116))
         self.screen.blit(line_number, (panel.left + 18, code_y + 5))
 
-        prefix = 'print('
+        prefix = 'trace('
         typed_prefix = typed[:min(len(typed), len(prefix))]
         prefix_surface = mono.render(typed_prefix, True, (188, 208, 221))
         self.screen.blit(prefix_surface, (code_x, code_y))
@@ -323,26 +329,43 @@ class WeGotYou:
         if typed_count == len(code):
             output_y = code_y + 76
             pygame.draw.circle(self.screen, accent, (code_x + 5, output_y + 12), 3)
-            self.draw_text("We got you", (code_x + 105, output_y + 12), 20, (218, 231, 239))
-        self.draw_text("BUILD SUCCESSFUL", (panel.left + 122, panel.bottom - 34),
+            self.draw_text("TARGET LOCKED", (code_x + 135, output_y + 12), 20, (244, 209, 202), True)
+            if scene_time > 2.0:
+                self.draw_text("SIGNAL TRIANGULATED", (code_x + 12, output_y + 49),
+                               13, (224, 155, 144), True)
+            if scene_time > 3.2:
+                self.draw_text("DISTANCE: 00.4 KM", (code_x + 12, output_y + 73),
+                               13, (255, 93, 77), True)
+            if scene_time > 4.2:
+                self.draw_text("DO NOT LOOK BEHIND YOU", (code_x + 12, output_y + 97),
+                               12, (255, 59, 64), True)
+
+        if breach > 0.25:
+            for glitch in range(3):
+                glitch_y = panel.top + 72 + (int(scene_time * 61) + glitch * 79) % (panel.height - 88)
+                glitch_x = panel.left + (int(scene_time * 97) + glitch * 131) % max(1, panel.width - 100)
+                glitch_width = min(36 + glitch * 17, panel.right - glitch_x - 8)
+                pygame.draw.rect(self.screen, (215, 49, 56),
+                                 (glitch_x, glitch_y, glitch_width, 2))
+        self.draw_text("LOCATION EXPOSED", (panel.left + 122, panel.bottom - 34),
                        11, accent, True)
 
     def draw_mascot(self, center, scale):
         """Draw the small mascot beside the portal."""
         x, y = center
-        skin = (126, 221, 146)
+        skin = (74, 28, 34)
         body = pygame.Rect(x - scale // 2, y - scale // 3, scale, int(scale * 1.15))
         pygame.draw.ellipse(self.screen, skin, body)
         for antenna_x in (x - scale // 4, x + scale // 4):
             pygame.draw.line(self.screen, skin, (antenna_x, body.top + 4),
                              (antenna_x + (antenna_x - x) // 2, body.top - scale // 4), 3)
-            pygame.draw.circle(self.screen, (210, 248, 172),
+            pygame.draw.circle(self.screen, (255, 74, 64),
                                (antenna_x + (antenna_x - x) // 2, body.top - scale // 4), 4)
         eye_y = y - scale // 8
         eye_spacing = scale // 4
         for eye_x in (x - eye_spacing, x, x + eye_spacing):
-            pygame.draw.circle(self.screen, (232, 246, 224), (eye_x, eye_y), max(4, scale // 9))
-            pygame.draw.circle(self.screen, (22, 48, 42), (eye_x + 1, eye_y), max(2, scale // 18))
+            pygame.draw.circle(self.screen, (255, 219, 194), (eye_x, eye_y), max(4, scale // 9))
+            pygame.draw.circle(self.screen, (168, 18, 28), (eye_x + 1, eye_y), max(2, scale // 18))
         for leg_x in (x - scale // 4, x + scale // 4):
             pygame.draw.line(self.screen, skin, (leg_x, body.bottom - 5),
                              (leg_x - 5, body.bottom + scale // 4), 4)
@@ -351,20 +374,20 @@ class WeGotYou:
         """Draw the animated portal scene and its mascot."""
         center_x, center_y = center
         radius = min(240, max(68, int(min(self.width * 0.17, self.height * 0.28))))
-        outer = (45, 191, 113)
-        inner = (13, 46, 39)
-        pygame.draw.circle(self.screen, (12, 34, 30), (center_x, center_y), radius + 22)
+        outer = (231, 47, 53)
+        inner = (35, 10, 16)
+        pygame.draw.circle(self.screen, (28, 8, 13), (center_x, center_y), radius + 22)
         pygame.draw.circle(self.screen, outer, (center_x, center_y), radius + 14, 2)
-        pygame.draw.circle(self.screen, (30, 117, 82), (center_x, center_y), radius + 5, 5)
+        pygame.draw.circle(self.screen, (112, 23, 35), (center_x, center_y), radius + 5, 5)
         pygame.draw.circle(self.screen, inner, (center_x, center_y), radius)
-        pygame.draw.circle(self.screen, (19, 77, 58), (center_x, center_y), int(radius * 0.73), 2)
+        pygame.draw.circle(self.screen, (79, 20, 29), (center_x, center_y), int(radius * 0.73), 2)
 
         for ring in range(4):
             ring_radius = int(radius * (0.36 + ring * 0.14))
             rect = pygame.Rect(center_x - ring_radius, center_y - ring_radius,
                                ring_radius * 2, ring_radius * 2)
             start = self.phase * (0.7 + ring * 0.16) * (1 if ring % 2 else -1)
-            pygame.draw.arc(self.screen, (55 + ring * 18, 205, 120 + ring * 13),
+            pygame.draw.arc(self.screen, (190 + ring * 14, 34 + ring * 8, 47 + ring * 8),
                             rect, start, start + 2.0, 2)
 
         for particle in range(18):
@@ -372,13 +395,13 @@ class WeGotYou:
             distance = radius * (0.28 + 0.66 * ((particle * 7 % 18) / 18))
             px = int(center_x + math.cos(angle) * distance)
             py = int(center_y + math.sin(angle) * distance)
-            pygame.draw.circle(self.screen, (100, 235, 145), (px, py), 2 + particle % 2)
+            pygame.draw.circle(self.screen, (255, 83, 66), (px, py), 2 + particle % 2)
 
         bob = math.sin(self.phase * 1.8) * radius * 0.08
         mascot_center = (int(center_x + radius * 0.93), int(center_y + radius * 0.48 + bob))
         self.draw_mascot(mascot_center, max(34, int(radius * 0.46)))
-        self.draw_text("A LITTLE HELP FROM ANOTHER WORLD", (center_x, center_y + radius + 64),
-                       11, (132, 215, 159), True)
+        self.draw_text("NO EXIT FOUND", (center_x, center_y + radius + 64),
+                   11, (241, 125, 111), True)
 
     def draw(self, delta):
         """Render the current frame and advance animation state."""
@@ -389,11 +412,19 @@ class WeGotYou:
         compact = self.width < 900
         self.draw_background(delta, profile)
 
-        title_size = max(29, min(48, int(self.height * 0.058)))
-        title_color = tuple(int(value * (0.72 + 0.28 * math.sin(self.phase * 1.4)))
-                            for value in (220, 233, 241))
-        self.draw_text("WE GOT YOU", (self.width // 2, int(self.height * 0.12)),
+        headlines = ("SIGNAL DETECTED", "LOCATION EXPOSED", "WE GOT YOU")
+        sublines = (
+            "UNKNOWN DEVICE CONNECTED",
+            "YOUR POSITION IS NO LONGER PRIVATE",
+            "THERE IS NOWHERE LEFT TO HIDE",
+        )
+        title_size = max(27, min(48, int(self.height * 0.058)))
+        pulse = 0.72 + 0.28 * abs(math.sin(self.phase * (2.8 if scene_index == 2 else 1.4)))
+        title_color = (int(255 * pulse), int(220 * pulse), int(214 * pulse))
+        self.draw_text(headlines[scene_index], (self.width // 2, int(self.height * 0.105)),
                        title_size, title_color, True)
+        self.draw_text(sublines[scene_index], (self.width // 2, int(self.height * 0.155)),
+                       11, (177, 116, 119), True)
         self.draw_identity(profile, scene_index, compact)
         center = self.scene_center(compact)
 
@@ -403,6 +434,12 @@ class WeGotYou:
             self.draw_code_scene(center, scene_time)
         else:
             self.draw_portal_scene(center)
+
+        alert_color = (255, 48, 54) if int(self.phase * 3) % 2 else (125, 24, 32)
+        pygame.draw.rect(self.screen, alert_color, (0, 0, self.width, 4))
+        pygame.draw.rect(self.screen, alert_color, (0, self.height - 4, self.width, 4))
+        pygame.draw.circle(self.screen, alert_color, (30, 34), 5)
+        self.draw_text("LIVE", (70, 34), 11, (221, 151, 148), True)
 
         dots_y = self.height - 32
         for dot_index, item in enumerate(PROFILES):
