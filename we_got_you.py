@@ -141,17 +141,28 @@ class WeGotYou:
 
     def __init__(self):
         """Initialize the display, animation state, and avatar workers."""
-        pygame.init()
-        pygame.display.set_caption("We got you")
-        self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
-        activate_fullscreen_window()
-        self.width, self.height = self.screen.get_size()
-        self.clock = pygame.time.Clock()
+        self.screen = None
+        self.width = 0
+        self.height = 0
+        self.clock = None
         self.phase = 0.0
-        self.running = True
+        self.running = False
         self.avatars = {}
         self.avatar_queue = queue.Queue()
         self.fonts = {}
+        self.stars = []
+        try:
+            pygame.init()
+            self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+            pygame.display.set_caption("We got you")
+            activate_fullscreen_window()
+        except pygame.error as exc:
+            print(f"WeGotYou animation skipped: {exc}", file=sys.stderr)
+            return
+
+        self.width, self.height = self.screen.get_size()
+        self.clock = pygame.time.Clock()
+        self.running = True
         self.stars = [
             [
                 random.random(),
@@ -172,7 +183,18 @@ class WeGotYou:
         """Return a cached system font for the requested size and weight."""
         key = (size, bold)
         if key not in self.fonts:
-            self.fonts[key] = pygame.font.SysFont("segoeui", size, bold=bold)
+            candidates = ["segoeui", "Segoe UI", "Arial", "Liberation Sans", "sans-serif"]
+            font = None
+            for name in candidates:
+                try:
+                    font = pygame.font.SysFont(name, size, bold=bold)
+                    if font is not None:
+                        break
+                except pygame.error:
+                    continue
+            if font is None:
+                font = pygame.font.SysFont(None, size, bold=bold)
+            self.fonts[key] = font
         return self.fonts[key]
 
     def draw_text(self, text, center, size, color, bold=False):
@@ -196,6 +218,21 @@ class WeGotYou:
         accent = rgb(profile["color"])
         tint = rgb(profile["glow"])
         self.screen.fill((8, 7, 10))
+        haze = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        for layer in range(4):
+            drift = math.sin(self.phase * (0.11 + layer * 0.025) + layer) * self.width * 0.12
+            haze_rect = pygame.Rect(
+                int(self.width * (0.15 + layer * 0.22) + drift),
+                int(self.height * (0.16 + layer * 0.13)),
+                max(1, int(self.width * 0.34)),
+                max(1, int(self.height * 0.06)),
+            )
+            pygame.draw.ellipse(
+                haze,
+                (*tint, 7 + layer * 2),
+                haze_rect,
+            )
+        self.screen.blit(haze, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
         for band in range(12):
             offset = math.sin(self.phase * 0.24 + band * 0.65) * 52
             y = int((self.height * (band + 0.3) / 12 + offset) % self.height)
@@ -402,26 +439,257 @@ class WeGotYou:
                        11, accent, True)
 
     def draw_mascot(self, center, scale):
-        """Draw the small mascot beside the portal."""
+        """Draw the creature emerging from the portal."""
         x, y = center
-        skin = (74, 28, 34)
-        body = pygame.Rect(x - scale // 2, y - scale // 3, scale, int(scale * 1.15))
+        skin = (29, 8, 14)
+        body = pygame.Rect(x - scale // 2, y - scale // 3, scale, int(scale * 1.2))
+        pygame.draw.ellipse(self.screen, (7, 4, 8), body.inflate(scale // 3, scale // 5))
         pygame.draw.ellipse(self.screen, skin, body)
-        for antenna_x in (x - scale // 4, x + scale // 4):
-            pygame.draw.line(self.screen, skin, (antenna_x, body.top + 4),
-                             (antenna_x + (antenna_x - x) // 2, body.top - scale // 4), 3)
-            pygame.draw.circle(self.screen, (255, 74, 64),
-                               (antenna_x + (antenna_x - x) // 2, body.top - scale // 4), 4)
+
+        horn_points = (
+            [(x - scale // 3, body.top + scale // 4),
+             (x - scale // 2, body.top - scale // 3),
+             (x - scale // 10, body.top + scale // 8)],
+            [(x + scale // 3, body.top + scale // 4),
+             (x + scale // 2, body.top - scale // 3),
+             (x + scale // 10, body.top + scale // 8)],
+        )
+        for points in horn_points:
+            pygame.draw.polygon(self.screen, skin, points)
+            pygame.draw.line(self.screen, (104, 24, 32), points[0], points[1], 2)
+
         eye_y = y - scale // 8
         eye_spacing = scale // 4
-        for eye_x in (x - eye_spacing, x, x + eye_spacing):
-            pygame.draw.circle(self.screen, (255, 219, 194), (eye_x, eye_y), max(4, scale // 9))
-            pygame.draw.circle(self.screen, (168, 18, 28), (eye_x + 1, eye_y), max(2, scale // 18))
-        for leg_x in (x - scale // 4, x + scale // 4):
-            pygame.draw.line(self.screen, skin, (leg_x, body.bottom - 5),
-                             (leg_x - 5, body.bottom + scale // 4), 4)
+        eye_glow = (255, 41, 31) if math.sin(self.phase * 3.1) > -0.65 else (104, 12, 20)
+        for eye_x in (x - eye_spacing, x + eye_spacing):
+            pygame.draw.ellipse(
+                self.screen, (63, 6, 13),
+                (eye_x - scale // 8, eye_y - scale // 10, scale // 4, scale // 5),
+            )
+            pygame.draw.circle(self.screen, eye_glow, (eye_x, eye_y), max(4, scale // 12))
+            pygame.draw.circle(self.screen, (255, 205, 162), (eye_x, eye_y), max(1, scale // 28))
 
-    def draw_portal_scene(self, center):
+        mouth = pygame.Rect(x - scale // 4, y + scale // 6, scale // 2, scale // 3)
+        pygame.draw.ellipse(self.screen, (3, 2, 4), mouth)
+        tooth_width = max(3, scale // 14)
+        for tooth_x in range(mouth.left + 3, mouth.right - tooth_width, tooth_width + 2):
+            pygame.draw.polygon(
+                self.screen,
+                (211, 183, 157),
+                [(tooth_x, mouth.top + 2), (tooth_x + tooth_width // 2, mouth.top + scale // 9),
+                 (tooth_x + tooth_width, mouth.top + 2)],
+            )
+        for leg_x, direction in ((x - scale // 3, -1), (x + scale // 3, 1)):
+            pygame.draw.line(self.screen, skin, (leg_x, body.bottom - 8),
+                             (leg_x + direction * scale // 3, body.bottom + scale // 4), 5)
+            for claw in range(3):
+                claw_x = leg_x + direction * (scale // 4 + claw * 4)
+                pygame.draw.line(self.screen, (190, 42, 41),
+                                 (claw_x, body.bottom + scale // 4 - 2),
+                                 (claw_x + direction * 7, body.bottom + scale // 4 + 5), 2)
+
+    def draw_horror_overlay(self, scene_index, scene_time):
+        """Add restrained scan lines, edge darkening, and timed signal tears."""
+        if scene_index != 2 or scene_time < 6.15:
+            for y in range(2, self.height, 8):
+                pygame.draw.line(self.screen, (2, 1, 3), (0, y), (self.width, y), 1)
+
+        pulse = 0.5 + 0.5 * math.sin(self.phase * 0.55)
+        edge_color = (int(48 + pulse * 42), 5, 13)
+        pygame.draw.rect(self.screen, edge_color, (0, 0, self.width, 2))
+        pygame.draw.rect(self.screen, edge_color, (0, self.height - 2, self.width, 2))
+        pygame.draw.rect(self.screen, (18, 4, 10), (0, 0, 2, self.height))
+        pygame.draw.rect(self.screen, (18, 4, 10), (self.width - 2, 0, 2, self.height))
+
+        tear = (self.phase * 0.75) % 1.0
+        if tear > 0.82 or (scene_index == 2 and scene_time > 5.0 and tear < 0.16):
+            tear_y = int((math.sin(self.phase * 19) * 0.5 + 0.5) * (self.height - 8))
+            tear_height = 2 + int(tear * 5)
+            tear_x = int(math.sin(self.phase * 7.3) * self.width * 0.08)
+            tear_rect = pygame.Rect(tear_x, tear_y, self.width, tear_height).clip(
+                pygame.Rect(0, 0, self.width, self.height)
+            )
+            pygame.draw.rect(self.screen, (104, 10, 22), tear_rect)
+            pygame.draw.line(
+                self.screen, (174, 35, 43),
+                (tear_rect.left, tear_rect.centery),
+                (tear_rect.right, tear_rect.centery), 1,
+            )
+
+        if scene_index == 2 and 2.5 < scene_time < 3.3:
+            apparition = max(0.0, math.sin((scene_time - 2.5) * 5.2)) ** 8
+            if apparition > 0.1:
+                eye_y = int(self.height * 0.43)
+                eye_gap = max(26, int(self.width * 0.035))
+                eye_x = self.width // 2
+                for x in (eye_x - eye_gap, eye_x + eye_gap):
+                    pygame.draw.ellipse(
+                        self.screen, (int(90 * apparition), 3, 10),
+                        (x - 13, eye_y - 5, 26, 10),
+                    )
+                    pygame.draw.circle(
+                        self.screen, (int(255 * apparition), int(24 * apparition), 17),
+                        (x, eye_y), 3,
+                    )
+
+    def draw_final_creature(self, progress):
+        """Bring the creature into the foreground for the final reveal."""
+        progress = max(0.0, min(1.35, progress))
+        zoom = max(0.0, progress - 1.0)
+        progress = min(1.0, progress)
+        progress = progress * progress * (3.0 - 2.0 * progress)
+        head_h = max(1, int(self.height * (0.32 + progress * 0.62 + zoom * 0.42)))
+        head_w = max(1, min(int(self.width * (0.82 + zoom)), int(head_h * 0.78)))
+        lunge = max(0.0, progress - 0.78)
+        tremor = 1 if lunge <= 0 else int(math.sin(self.phase * 10.0) * lunge * 7)
+        center_x = self.width // 2 + int(math.sin(self.phase * 2.4) * (1 + progress * 5)) + tremor
+        center_y = int(self.height * 0.52 + math.sin(self.phase * 1.7) * (4 + zoom * 13))
+        head = pygame.Rect(0, 0, head_w, head_h)
+        head.center = (center_x, center_y)
+
+        shadow = head.inflate(int(head_w * 0.22), int(head_h * 0.1))
+        pygame.draw.ellipse(self.screen, (1, 1, 3), shadow)
+        pygame.draw.ellipse(self.screen, (20, 5, 11), head)
+        pygame.draw.ellipse(
+            self.screen, (64, 9, 19),
+            head.inflate(-max(2, head_w // 14), -max(2, head_h // 12)), 3,
+        )
+
+        for scar in range(5):
+            scar_x = center_x + int(head_w * (-0.3 + scar * 0.14))
+            scar_y = head.top + int(head_h * (0.12 + (scar % 2) * 0.11))
+            scar_end = (
+                scar_x + int(head_w * (0.04 if scar % 2 else -0.06)),
+                scar_y + int(head_h * (0.12 + (scar % 3) * 0.035)),
+            )
+            pygame.draw.lines(
+                self.screen, (94, 23, 32), False,
+                [(scar_x, scar_y), ((scar_x + scar_end[0]) // 2 + 3, scar_y + 5), scar_end],
+                max(1, head_w // 260),
+            )
+
+        for side in (-1, 1):
+            horn_base_x = center_x + side * int(head_w * 0.31)
+            horn_tip_x = center_x + side * int(head_w * 0.48)
+            pygame.draw.polygon(
+                self.screen, (14, 4, 9),
+                [(horn_base_x - head_w // 12, head.top + head_h // 6),
+                 (horn_tip_x, head.top - head_h // 10),
+                 (horn_base_x + head_w // 16, head.top + head_h // 3)],
+            )
+            pygame.draw.line(
+                self.screen, (102, 20, 30),
+                (horn_base_x, head.top + head_h // 5),
+                (horn_tip_x, head.top - head_h // 10), max(1, head_w // 220),
+            )
+
+        eye_y = center_y - int(head_h * 0.12)
+        eye_gap = int(head_w * 0.2)
+        eye_w = max(8, int(head_w * 0.21))
+        eye_h = max(5, int(head_h * 0.075))
+        eye_glow = 0.72 + 0.28 * abs(math.sin(self.phase * 1.15))
+        gaze = int(math.sin(self.phase * 0.42) * eye_w * 0.1)
+        for eye_index, side in enumerate((-1, 1)):
+            eye_x = center_x + side * eye_gap
+            tilt = (-1 if eye_index else 1) * eye_h // 2
+            socket_points = [
+                (eye_x - eye_w // 2, eye_y - tilt),
+                (eye_x, eye_y - eye_h),
+                (eye_x + eye_w // 2, eye_y + tilt),
+                (eye_x, eye_y + eye_h),
+            ]
+            pygame.draw.polygon(self.screen, (3, 1, 4), socket_points)
+            pygame.draw.polygon(self.screen, (111, 8, 17), socket_points, max(2, eye_w // 18))
+            pygame.draw.ellipse(
+                self.screen, (int(255 * eye_glow), int(19 * eye_glow), 10),
+                (eye_x - eye_w // 3, eye_y - eye_h // 2,
+                 eye_w * 2 // 3, eye_h),
+            )
+            pupil_x = eye_x + gaze + int(math.sin(self.phase * 0.9 + eye_index) * eye_w * 0.06)
+            pygame.draw.ellipse(
+                self.screen, (5, 1, 3),
+                (pupil_x - max(2, eye_w // 20), eye_y - eye_h // 2,
+                 max(4, eye_w // 10), eye_h),
+            )
+            pygame.draw.line(
+                self.screen, (13, 3, 8),
+                (eye_x - eye_w // 2, eye_y - eye_h),
+                (eye_x + eye_w // 2, eye_y - eye_h // 2), max(2, eye_h // 3),
+            )
+
+        mouth_w = int(head_w * (0.31 + 0.08 * abs(math.sin(self.phase * 1.25))))
+        mouth_h = int(head_h * (0.2 + 0.09 * abs(math.sin(self.phase * 1.25))))
+        mouth = pygame.Rect(0, 0, mouth_w, mouth_h)
+        mouth.center = (center_x, center_y + int(head_h * 0.22))
+        pygame.draw.ellipse(self.screen, (1, 0, 2), mouth.inflate(head_w // 26, head_h // 32))
+        mouth_glow = pygame.Surface((mouth.width + head_w // 8, mouth.height + head_h // 8), pygame.SRCALPHA)
+        pygame.draw.ellipse(
+            mouth_glow, (143, 12, 24, 34),
+            mouth_glow.get_rect().inflate(-head_w // 18, -head_h // 24),
+        )
+        self.screen.blit(
+            mouth_glow,
+            mouth_glow.get_rect(center=mouth.center).topleft,
+            special_flags=pygame.BLEND_RGBA_ADD,
+        )
+        tooth_w = max(4, head_w // 25)
+        for tooth_index, tooth_x in enumerate(
+            range(mouth.left + tooth_w // 2, mouth.right - tooth_w, tooth_w * 2)
+        ):
+            tooth_h = max(5, int(head_h * (0.025 + (tooth_index % 3) * 0.008)))
+            pygame.draw.polygon(
+                self.screen, (205, 183, 158),
+                [(tooth_x, mouth.top + 2),
+                 (tooth_x + tooth_w // 2, mouth.top + tooth_h),
+                 (tooth_x + tooth_w, mouth.top + 2)],
+            )
+            pygame.draw.polygon(
+                self.screen, (205, 183, 158),
+                [(tooth_x, mouth.bottom - 2),
+                 (tooth_x + tooth_w // 2, mouth.bottom - tooth_h),
+                 (tooth_x + tooth_w, mouth.bottom - 2)],
+            )
+        for side in (-1, 1):
+            tear_x = center_x + side * int(head_w * 0.2)
+            tear_top = eye_y + eye_h // 2
+            tear_bottom = tear_top + int(head_h * (0.13 + 0.02 * abs(math.sin(self.phase))))
+            pygame.draw.line(
+                self.screen, (100, 5, 17), (tear_x, tear_top), (tear_x + side * 5, tear_bottom),
+                max(2, head_w // 100),
+            )
+            pygame.draw.circle(
+                self.screen, (132, 9, 18), (tear_x + side * 5, tear_bottom), max(2, head_w // 90),
+            )
+
+        arm_y = center_y + int(head_h * 0.26)
+        for side in (-1, 1):
+            shoulder = (center_x + side * int(head_w * 0.37), arm_y)
+            wrist = (center_x + side * int(self.width * (0.39 + 0.06 * progress)),
+                     int(self.height * 0.68))
+            pygame.draw.line(self.screen, (15, 4, 9), shoulder, wrist, max(8, head_w // 13))
+            pygame.draw.circle(self.screen, (22, 5, 10), wrist, max(12, head_w // 18))
+            for claw in range(4):
+                claw_x = wrist[0] + side * (claw - 1) * max(5, head_w // 34)
+                claw_tip = (
+                    claw_x + side * max(8, head_w // 30),
+                    wrist[1] + int(self.height * (0.13 + claw * 0.018)),
+                )
+                pygame.draw.line(
+                    self.screen, (20, 4, 8), wrist, claw_tip, max(4, head_w // 45),
+                )
+                pygame.draw.line(
+                    self.screen, (139, 31, 38), claw_tip,
+                    (claw_tip[0] - side * max(2, head_w // 90),
+                     claw_tip[1] + max(6, head_h // 24)), max(2, head_w // 100),
+                )
+
+        if progress > 0.78 and zoom < 0.05:
+            warning = self.font(max(22, min(48, self.width // 24)), True)
+            text = warning.render("DON'T TURN AROUND", True, (210, 18, 27))
+            text.set_alpha(int(100 + 155 * (0.5 + 0.5 * math.sin(self.phase * 1.1))))
+            self.screen.blit(text, text.get_rect(center=(center_x, int(self.height * 0.91))))
+
+    def draw_portal_scene(self, center, scene_time):
         """Draw the animated portal scene and its mascot."""
         center_x, center_y = center
         radius = min(240, max(68, int(min(self.width * 0.17, self.height * 0.28))))
@@ -448,9 +716,32 @@ class WeGotYou:
             py = int(center_y + math.sin(angle) * distance)
             pygame.draw.circle(self.screen, (255, 83, 66), (px, py), 2 + particle % 2)
 
-        bob = math.sin(self.phase * 1.8) * radius * 0.08
+        tendril_points = []
+        for tendril in range(5):
+            angle = self.phase * 0.18 + tendril * math.tau / 5
+            start_distance = radius * 0.68
+            end_distance = radius * (1.12 + 0.08 * math.sin(self.phase + tendril))
+            start = (
+                int(center_x + math.cos(angle) * start_distance),
+                int(center_y + math.sin(angle) * start_distance),
+            )
+            end = (
+                int(center_x + math.cos(angle + 0.25) * end_distance),
+                int(center_y + math.sin(angle + 0.25) * end_distance),
+            )
+            bend = (
+                int((start[0] + end[0]) / 2 + math.sin(self.phase * 1.7 + tendril) * radius * 0.16),
+                int((start[1] + end[1]) / 2 + math.cos(self.phase * 1.3 + tendril) * radius * 0.12),
+            )
+            tendril_points.append((start, bend, end))
+        for start, bend, end in tendril_points:
+            pygame.draw.lines(self.screen, (92, 17, 27), False, (start, bend, end), 3)
+            pygame.draw.circle(self.screen, (211, 35, 42), end, 2)
+
+        stillness = max(0.0, min(1.0, (scene_time - 2.6) / 0.5))
+        bob = math.sin(self.phase * 1.8) * radius * 0.08 * (1.0 - stillness)
         jerk_offsets = (-0.28, 0.26, 0.38, -0.18, -0.36, 0.12)
-        jerk = jerk_offsets[int(self.phase * 5) % len(jerk_offsets)]
+        jerk = jerk_offsets[int(self.phase * 5) % len(jerk_offsets)] * (1.0 - stillness)
         mascot_center = (
             int(center_x + radius * (0.93 + jerk)),
             int(center_y + radius * 0.48 + bob),
@@ -458,6 +749,49 @@ class WeGotYou:
         self.draw_mascot(mascot_center, max(34, int(radius * 0.46)))
         self.draw_text("NO EXIT FOUND", (center_x, center_y + radius + 64),
                    11, (241, 125, 111), True)
+        if scene_time > 3.3:
+            reveal = (scene_time - 3.3) / 1.4
+            if scene_time > 6.15:
+                reveal = 1.0 + (scene_time - 6.15) * 1.0
+            if scene_time > 6.55:
+                flash = 0.5 + 0.5 * math.sin((scene_time - 6.55) * 18)
+                blackout = pygame.Surface((self.width, self.height))
+                blackout.fill((35, 0, 8) if flash > 0.72 else (0, 0, 2))
+                blackout.set_alpha(120 if flash > 0.72 else 190)
+                self.screen.blit(blackout, (0, 0))
+            self.draw_final_creature(reveal)
+
+    def draw_vignette(self, scene_index, scene_time):
+        """Focus attention toward the center without hiding the animation."""
+        overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        strength = 82 if scene_index < 2 else min(150, int(82 + scene_time * 9))
+        edge = max(18, int(min(self.width, self.height) * 0.09))
+        for inset in range(edge, 0, -max(2, edge // 18)):
+            alpha = int(strength * (1 - inset / edge) ** 2)
+            pygame.draw.rect(
+                overlay,
+                (0, 0, 0, alpha),
+                (inset, inset, self.width - inset * 2, self.height - inset * 2),
+                width=max(2, edge // 18),
+            )
+        self.screen.blit(overlay, (0, 0))
+
+    def draw_signal_warning(self, scene_index, scene_time):
+        """Show sparse warnings that escalate only in the final scene."""
+        messages = (
+            ("CAMERA 03: SUBJECT MOVING", 1.4),
+            ("TRACE COMPLETE", 2.2),
+            ("DO NOT TURN AROUND", 4.6),
+        )
+        if scene_index == 2 and scene_time > messages[2][1]:
+            text = self.font(12, True).render(messages[2][0], True, (227, 35, 43))
+            alpha = int(90 + 120 * abs(math.sin(self.phase * 0.7)))
+            text.set_alpha(alpha)
+            self.screen.blit(text, (self.width - text.get_width() - 34, self.height - 68))
+        elif scene_index < 2 and scene_time > messages[scene_index][1]:
+            text = self.font(11, True).render(messages[scene_index][0], True, (164, 54, 61))
+            text.set_alpha(170)
+            self.screen.blit(text, (34, self.height - 68))
 
     def draw(self, delta):
         """Render the current frame and advance animation state."""
@@ -472,7 +806,9 @@ class WeGotYou:
         compact = self.width < 900
         self.draw_background(delta, profile)
 
-        headlines = ("SIGNAL DETECTED", "LOCATION EXPOSED", "WE GOT YOU")
+        final_reveal = scene_index == 2 and scene_time > 3.3
+        headlines = ("SIGNAL DETECTED", "LOCATION EXPOSED",
+                     "DON'T TURN AROUND" if final_reveal else "WE GOT YOU")
         sublines = (
             "UNKNOWN DEVICE CONNECTED",
             "YOUR POSITION IS NO LONGER PRIVATE",
@@ -483,9 +819,10 @@ class WeGotYou:
         title_color = (int(255 * pulse), int(220 * pulse), int(214 * pulse))
         self.draw_text(headlines[scene_index], (self.width // 2, int(self.height * 0.105)),
                        title_size, title_color, True)
-        self.draw_text(sublines[scene_index], (self.width // 2, int(self.height * 0.155)),
-                       11, (177, 116, 119), True)
-        self.draw_identity(profile, scene_index, compact)
+        if not final_reveal:
+            self.draw_text(sublines[scene_index], (self.width // 2, int(self.height * 0.155)),
+                           11, (177, 116, 119), True)
+            self.draw_identity(profile, scene_index, compact)
         center = self.scene_center(compact)
 
         if scene_index == 0:
@@ -493,11 +830,12 @@ class WeGotYou:
         elif scene_index == 1:
             self.draw_code_scene(center, scene_time)
         else:
-            self.draw_portal_scene(center)
+            self.draw_portal_scene(center, scene_time)
 
-        alert_color = (255, 48, 54) if int(self.phase * 3) % 2 else (125, 24, 32)
-        pygame.draw.rect(self.screen, alert_color, (0, 0, self.width, 4))
-        pygame.draw.rect(self.screen, alert_color, (0, self.height - 4, self.width, 4))
+        self.draw_horror_overlay(scene_index, scene_time)
+        self.draw_signal_warning(scene_index, scene_time)
+        self.draw_vignette(scene_index, scene_time)
+        alert_color = (255, 28, 34) if int(self.phase * 0.65) % 2 else (74, 8, 16)
         pygame.draw.circle(self.screen, alert_color, (30, 34), 5)
         self.draw_text("LIVE", (70, 34), 11, (221, 151, 148), True)
 
