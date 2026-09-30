@@ -1,29 +1,18 @@
 from pathlib import Path
 import subprocess
 import sys
-import time
 
 
 ORDNER = Path(__file__).resolve().parent
 AUTOSTART = ORDNER / "autostart.ps1"
 BLOODY_SCAMMER = ORDNER / "we_got_you.py"
-NEW_SCRIPT = ORDNER / "new.py"
 RUSSK_SCRIPT = ORDNER / "Russk.py"
-NEW_DELAY_SECONDS = 7
-RUSSK_DELAY_SECONDS = 17
 
 
-def hidden_process_options() -> dict:
-    if sys.platform != "win32":
-        return {}
-
-    startup_info = subprocess.STARTUPINFO()
-    startup_info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-    startup_info.wShowWindow = subprocess.SW_HIDE
-    return {
-        "creationflags": subprocess.CREATE_NO_WINDOW,
-        "startupinfo": startup_info,
-    }
+def python_command(script: Path) -> list[str]:
+    if getattr(sys, "frozen", False):
+        return ["py", "-3.11", str(script)]
+    return [sys.executable, str(script)]
 
 
 def starte() -> None:
@@ -42,28 +31,16 @@ def starte() -> None:
 #         )
 
     if BLOODY_SCAMMER.is_file():
-        subprocess.Popen(
+        subprocess.run(
             ["py", "-3.11", str(BLOODY_SCAMMER)],
             cwd=ORDNER,
-            start_new_session=True,
-            **hidden_process_options(),
+            check=True,
         )
 
-    startzeit = time.monotonic()
-    time.sleep(max(0, NEW_DELAY_SECONDS - (time.monotonic() - startzeit)))
-    if NEW_SCRIPT.is_file():
-        subprocess.Popen(
-            [sys.executable, str(NEW_SCRIPT)],
-            cwd=ORDNER,
-            **hidden_process_options(),
-        )
-
-    time.sleep(max(0, RUSSK_DELAY_SECONDS - (time.monotonic() - startzeit)))
     if RUSSK_SCRIPT.is_file():
         subprocess.Popen(
-            [sys.executable, str(RUSSK_SCRIPT)],
+            python_command(RUSSK_SCRIPT),
             cwd=ORDNER,
-            **hidden_process_options(),
         )
 
 
