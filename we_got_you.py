@@ -12,6 +12,8 @@ import sys
 import threading
 import urllib.error
 import urllib.request
+import ctypes
+from ctypes import wintypes
 from pathlib import Path
 
 from PIL import Image, ImageDraw
@@ -53,6 +55,33 @@ PROFILES = [
 
 BACKGROUND = (8, 12, 17)
 SCENE_DURATIONS = (7.8, 12.0, 7.8)
+
+
+def activate_fullscreen_window():
+    if sys.platform != "win32":
+        return
+
+    window_handle = pygame.display.get_wm_info().get("window")
+    if not window_handle:
+        return
+
+    user32 = ctypes.WinDLL("user32", use_last_error=True)
+    set_window_pos = user32.SetWindowPos
+    set_window_pos.argtypes = [
+        wintypes.HWND,
+        wintypes.HWND,
+        wintypes.INT,
+        wintypes.INT,
+        wintypes.INT,
+        wintypes.INT,
+        wintypes.UINT,
+    ]
+    set_foreground_window = user32.SetForegroundWindow
+    set_foreground_window.argtypes = [wintypes.HWND]
+
+    window = wintypes.HWND(window_handle)
+    set_window_pos(window, wintypes.HWND(-1), 0, 0, 0, 0, 0x0043)
+    set_foreground_window(window)
 
 
 def start_monitor_windows():
@@ -115,6 +144,7 @@ class WeGotYou:
         pygame.init()
         pygame.display.set_caption("We got you")
         self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+        activate_fullscreen_window()
         self.width, self.height = self.screen.get_size()
         self.clock = pygame.time.Clock()
         self.phase = 0.0
