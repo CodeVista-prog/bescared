@@ -1,13 +1,27 @@
+"""Render a short animated thank-you sequence for the configured profiles."""
+
+import http.client
 import io
+import importlib
 import json
 import math
 import queue
 import random
 import threading
+import urllib.error
 import urllib.request
 
-import pygame
 from PIL import Image, ImageDraw
+
+try:
+    pygame = importlib.import_module("pygame")
+except ModuleNotFoundError as error:
+    if error.name == "pygame":
+        raise SystemExit(
+            "pygame is required to run this animation. "
+            "Install it with: python -m pip install pygame"
+        ) from None
+    raise
 
 
 PROFILES = [
@@ -39,10 +53,12 @@ SCENE_DURATION = 7.8
 
 
 def rgb(hex_color):
+    """Convert a hexadecimal color string to an RGB tuple."""
     return tuple(int(hex_color[index:index + 2], 16) for index in (1, 3, 5))
 
 
 def load_avatar(profile, avatar_queue):
+    """Fetch, circularly mask, and enqueue a profile avatar when available."""
     try:
         request = urllib.request.Request(
             f"https://api.github.com/users/{profile['username']}",
@@ -58,12 +74,23 @@ def load_avatar(profile, avatar_queue):
         ImageDraw.Draw(mask).ellipse((0, 0, 255, 255), fill=255)
         image.putalpha(mask)
         avatar_queue.put((profile["username"], image.tobytes()))
-    except Exception:
+    except (
+        http.client.HTTPException,
+        KeyError,
+        OSError,
+        TimeoutError,
+        TypeError,
+        urllib.error.URLError,
+        ValueError,
+    ):
         avatar_queue.put((profile["username"], None))
 
 
 class WeGotYou:
+    """Manage and render the full-screen animation."""
+
     def __init__(self):
+        """Initialize the display, animation state, and avatar workers."""
         pygame.init()
         pygame.display.set_caption("We got you")
         self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
@@ -75,23 +102,35 @@ class WeGotYou:
         self.avatar_queue = queue.Queue()
         self.fonts = {}
         self.stars = [
-            [random.random(), random.random(), random.uniform(0.07, 0.22), random.random() * math.tau]
+            [
+                random.random(),
+                random.random(),
+                random.uniform(0.07, 0.22),
+                random.random() * math.tau,
+            ]
             for _ in range(85)
         ]
         for profile in PROFILES:
-            threading.Thread(target=load_avatar, args=(profile, self.avatar_queue), daemon=True).start()
+            threading.Thread(
+                target=load_avatar,
+                args=(profile, self.avatar_queue),
+                daemon=True,
+            ).start()
 
     def font(self, size, bold=False):
+        """Return a cached system font for the requested size and weight."""
         key = (size, bold)
         if key not in self.fonts:
             self.fonts[key] = pygame.font.SysFont("segoeui", size, bold=bold)
         return self.fonts[key]
 
     def draw_text(self, text, center, size, color, bold=False):
+        """Render text centered at the requested screen coordinates."""
         image = self.font(size, bold).render(text, True, color)
         self.screen.blit(image, image.get_rect(center=center))
 
     def collect_avatars(self):
+        """Move completed avatar images from the worker queue into the cache."""
         while True:
             try:
                 username, pixels = self.avatar_queue.get_nowait()
@@ -102,6 +141,7 @@ class WeGotYou:
                 self.avatars[username] = avatar
 
     def draw_background(self, delta, profile):
+        """Draw the animated background using the current profile colors."""
         accent = rgb(profile["color"])
         tint = rgb(profile["glow"])
         self.screen.fill((7, 10, 14))
@@ -127,6 +167,7 @@ class WeGotYou:
         self.screen.blit(glow, (glow_x - 160, glow_y - 160), special_flags=pygame.BLEND_RGBA_ADD)
 
     def draw_identity(self, profile, index, compact):
+        """Draw the profile avatar, name, handle, and sequence number."""
         accent = rgb(profile["color"])
         glow = rgb(profile["glow"])
         avatar_radius = min(78, max(42, int(min(self.width / 14, self.height / 8))))
@@ -143,11 +184,23 @@ class WeGotYou:
             self.screen.blit(image, image.get_rect(center=(avatar_x, avatar_y)))
         else:
             pygame.draw.circle(self.screen, (18, 28, 35), (avatar_x, avatar_y), avatar_radius)
-            initials = "".join(part[0] for part in profile["name"].replace("-", " ").split()[:2]).upper()
-            self.draw_text(initials, (avatar_x, avatar_y), max(28, avatar_radius // 2), accent, True)
+            initials = "".join(
+                part[0]
+                for part in profile["name"].replace("-", " ").split()[:2]
+            ).upper()
+            self.draw_text(
+                initials,
+                (avatar_x, avatar_y),
+                max(28, avatar_radius // 2),
+                accent,
+                True,
+            )
 
         name_size = min(30, max(19, int(self.width * 0.021)))
-        while self.font(name_size, True).size(profile["name"])[0] > self.width * 0.42 and name_size > 15:
+        while (
+            self.font(name_size, True).size(profile["name"])[0] > self.width * 0.42
+            and name_size > 15
+        ):
             name_size -= 1
         name_y = avatar_y + avatar_radius + 42
         self.draw_text(profile["name"], (avatar_x, name_y), name_size, (230, 238, 244), True)
@@ -155,11 +208,13 @@ class WeGotYou:
         self.draw_text(f"0{index + 1}  /  03", (avatar_x, name_y + 68), 11, accent, True)
 
     def scene_center(self, compact):
+        """Return the center point for the current scene layout."""
         x = self.width // 2 if compact else int(self.width * 0.69)
         y = int(self.height * (0.69 if compact else 0.56))
         return x, y
 
     def draw_server_scene(self, center):
+        """Draw the animated server rack scene."""
         center_x, center_y = center
         accent = rgb(PROFILES[0]["color"])
         glow = rgb(PROFILES[0]["glow"])
@@ -183,7 +238,13 @@ class WeGotYou:
             rect = pygame.Rect(x, top, rack_width, rack_height)
             pygame.draw.rect(self.screen, (12, 20, 27), rect, border_radius=8)
             pygame.draw.rect(self.screen, glow, rect, width=1, border_radius=8)
-            pygame.draw.line(self.screen, accent, (x + 12, top + 18), (x + rack_width - 12, top + 18), 2)
+            pygame.draw.line(
+                self.screen,
+                accent,
+                (x + 12, top + 18),
+                (x + rack_width - 12, top + 18),
+                2,
+            )
             row_count = 5
             row_height = (rack_height - 52) // row_count
             for row in range(row_count):
@@ -194,8 +255,16 @@ class WeGotYou:
                 for led in range(3):
                     led_phase = self.phase * 3 + rack_index + row + led
                     led_color = accent if math.sin(led_phase) > -0.35 else (43, 58, 68)
-                    pygame.draw.circle(self.screen, led_color, (unit.left + 11 + led * 9, unit.centery), 2)
-                bar_width = int((unit.width - 48) * (0.32 + 0.5 * abs(math.sin(self.phase + row + rack_index))))
+                    pygame.draw.circle(
+                        self.screen,
+                        led_color,
+                        (unit.left + 11 + led * 9, unit.centery),
+                        2,
+                    )
+                bar_width = int(
+                    (unit.width - 48)
+                    * (0.32 + 0.5 * abs(math.sin(self.phase + row + rack_index)))
+                )
                 pygame.draw.line(self.screen, glow, (unit.left + 43, unit.centery),
                                  (unit.left + 43 + bar_width, unit.centery), 3)
 
@@ -205,6 +274,7 @@ class WeGotYou:
                        11, accent, True)
 
     def draw_code_scene(self, center, scene_time):
+        """Draw the animated code editor scene."""
         center_x, center_y = center
         accent = rgb(PROFILES[1]["color"])
         panel_width = min(int(self.width * 0.55), 850)
@@ -217,7 +287,12 @@ class WeGotYou:
         pygame.draw.line(self.screen, (37, 49, 59), (panel.left, panel.top + 48),
                          (panel.right, panel.top + 48), 1)
         for dot_index, color in enumerate(((108, 133, 148), (88, 117, 135), (79, 105, 121))):
-            pygame.draw.circle(self.screen, color, (panel.left + 23 + dot_index * 19, panel.top + 24), 5)
+            pygame.draw.circle(
+                self.screen,
+                color,
+                (panel.left + 23 + dot_index * 19, panel.top + 24),
+                5,
+            )
         self.draw_text("CODEVISTA  /  SUPPORT.PY", (panel.centerx, panel.top + 24),
                        12, (135, 157, 172), True)
 
@@ -240,7 +315,11 @@ class WeGotYou:
 
         if typed_count < len(code) and int(scene_time * 2.4) % 2 == 0:
             cursor_x = code_x + mono.size(typed)[0]
-            pygame.draw.rect(self.screen, accent, (cursor_x + 2, code_y + 5, 2, mono.get_height() - 8))
+            pygame.draw.rect(
+                self.screen,
+                accent,
+                (cursor_x + 2, code_y + 5, 2, mono.get_height() - 8),
+            )
         if typed_count == len(code):
             output_y = code_y + 76
             pygame.draw.circle(self.screen, accent, (code_x + 5, output_y + 12), 3)
@@ -249,6 +328,7 @@ class WeGotYou:
                        11, accent, True)
 
     def draw_mascot(self, center, scale):
+        """Draw the small mascot beside the portal."""
         x, y = center
         skin = (126, 221, 146)
         body = pygame.Rect(x - scale // 2, y - scale // 3, scale, int(scale * 1.15))
@@ -268,6 +348,7 @@ class WeGotYou:
                              (leg_x - 5, body.bottom + scale // 4), 4)
 
     def draw_portal_scene(self, center):
+        """Draw the animated portal scene and its mascot."""
         center_x, center_y = center
         radius = min(240, max(68, int(min(self.width * 0.17, self.height * 0.28))))
         outer = (45, 191, 113)
@@ -300,6 +381,7 @@ class WeGotYou:
                        11, (132, 215, 159), True)
 
     def draw(self, delta):
+        """Render the current frame and advance animation state."""
         scene_duration = SCENE_DURATION
         scene_index = int(self.phase / scene_duration) % len(PROFILES)
         scene_time = self.phase % scene_duration
@@ -340,6 +422,7 @@ class WeGotYou:
         self.phase += delta * 2.4
 
     def run(self):
+        """Run the frame loop until the sequence finishes or Escape is pressed."""
         while self.running:
             delta = min(self.clock.tick(60) / 1000.0, 0.05)
             for event in pygame.event.get():
