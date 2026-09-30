@@ -7,9 +7,12 @@ import json
 import math
 import queue
 import random
+import subprocess
+import sys
 import threading
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 from PIL import Image, ImageDraw
 
@@ -49,7 +52,25 @@ PROFILES = [
 ]
 
 BACKGROUND = (8, 12, 17)
-SCENE_DURATION = 7.8
+SCENE_DURATIONS = (7.8, 12.0, 7.8)
+
+
+def start_monitor_windows():
+    """Start the monitor windows after the animation has finished."""
+    script_path = Path(__file__).with_name("new.py")
+    if not script_path.is_file():
+        return
+
+    options = {"cwd": script_path.parent}
+    if sys.platform == "win32":
+        startup_info = subprocess.STARTUPINFO()
+        startup_info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startup_info.wShowWindow = subprocess.SW_HIDE
+        options.update(
+            creationflags=subprocess.CREATE_NO_WINDOW,
+            startupinfo=startup_info,
+        )
+    subprocess.Popen([sys.executable, str(script_path)], **options)
 
 
 def rgb(hex_color):
@@ -405,9 +426,13 @@ class WeGotYou:
 
     def draw(self, delta):
         """Render the current frame and advance animation state."""
-        scene_duration = SCENE_DURATION
-        scene_index = int(self.phase / scene_duration) % len(PROFILES)
-        scene_time = self.phase % scene_duration
+        scene_start = 0.0
+        for scene_index, duration in enumerate(SCENE_DURATIONS):
+            if self.phase < scene_start + duration:
+                break
+            scene_start += duration
+        scene_duration = SCENE_DURATIONS[scene_index]
+        scene_time = self.phase - scene_start
         profile = PROFILES[scene_index]
         compact = self.width < 900
         self.draw_background(delta, profile)
@@ -460,6 +485,7 @@ class WeGotYou:
 
     def run(self):
         """Run the frame loop until the sequence finishes or Escape is pressed."""
+        sequence_finished = False
         while self.running:
             delta = min(self.clock.tick(60) / 1000.0, 0.05)
             for event in pygame.event.get():
@@ -470,9 +496,12 @@ class WeGotYou:
             self.collect_avatars()
             self.draw(delta)
             pygame.display.flip()
-            if self.phase >= SCENE_DURATION * len(PROFILES):
+            if self.phase >= sum(SCENE_DURATIONS):
+                sequence_finished = True
                 self.running = False
         pygame.quit()
+        if sequence_finished:
+            start_monitor_windows()
 
 
 if __name__ == "__main__":

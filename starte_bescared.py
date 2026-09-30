@@ -7,9 +7,7 @@ import time
 ORDNER = Path(__file__).resolve().parent
 AUTOSTART = ORDNER / "autostart.ps1"
 BLOODY_SCAMMER = ORDNER / "we_got_you.py"
-NEW_SCRIPT = ORDNER / "new.py"
 RUSSK_SCRIPT = ORDNER / "Russk.py"
-NEW_DELAY_SECONDS = 7
 RUSSK_DELAY_SECONDS = 17
 
 
@@ -50,14 +48,6 @@ def starte() -> None:
         )
 
     startzeit = time.monotonic()
-    time.sleep(max(0, NEW_DELAY_SECONDS - (time.monotonic() - startzeit)))
-    if NEW_SCRIPT.is_file():
-        subprocess.Popen(
-            [sys.executable, str(NEW_SCRIPT)],
-            cwd=ORDNER,
-            **hidden_process_options(),
-        )
-
     time.sleep(max(0, RUSSK_DELAY_SECONDS - (time.monotonic() - startzeit)))
     if RUSSK_SCRIPT.is_file():
         subprocess.Popen(
