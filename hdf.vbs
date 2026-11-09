@@ -16,61 +16,61 @@ shell.SendKeys "{ENTER}"
 WScript.Sleep 900
 
 shell.SendKeys "^{ESC}"
-WScript.Sleep 300
+WScript.Sleep 200
 
 shell.SendKeys "Snipping Tool"
-WScript.Sleep 300
+WScript.Sleep 200
 shell.SendKeys "{ENTER}"
 
 WScript.Sleep 1400
 
 shell.SendKeys "{RIGHT}"
-WScript.Sleep 300
+WScript.Sleep 200
 
 shell.SendKeys "{RIGHT}"
-WScript.Sleep 300
+WScript.Sleep 200
 
 shell.SendKeys "{UP}"
-WScript.Sleep 300
+WScript.Sleep 200
 
 shell.SendKeys "{UP}"
-WScript.Sleep 300
+WScript.Sleep 200
 
 shell.SendKeys "{UP}"
-WScript.Sleep 300
+WScript.Sleep 200
 
 shell.SendKeys "{DOWN}"
-WScript.Sleep 300
+WScript.Sleep 200
 
 shell.SendKeys "{DOWN}"
-WScript.Sleep 300
+WScript.Sleep 200
 
 shell.SendKeys "{LEFT}"
-WScript.Sleep 300
+WScript.Sleep 200
 
 shell.SendKeys "{LEFT}"
-WScript.Sleep 300
+WScript.Sleep 200
 
 shell.SendKeys "{ENTER}"
 WScript.Sleep 1000
 
 shell.SendKeys "{TAB}"
-WScript.Sleep 300
+WScript.Sleep 200
 
 shell.SendKeys "{TAB}"
-WScript.Sleep 300
+WScript.Sleep 200
 
 shell.SendKeys "{TAB}"
-WScript.Sleep 300
+WScript.Sleep 200
 
 shell.SendKeys "{TAB}"
-WScript.Sleep 300
+WScript.Sleep 200
 
 shell.SendKeys "{TAB}"
-WScript.Sleep 300
+WScript.Sleep 200
 
 shell.SendKeys "{RIGHT}"
-WScript.Sleep 300
+WScript.Sleep 200
 
 shell.SendKeys "{ENTER}"
-WScript.Sleep 300
+WScript.Sleep 200
