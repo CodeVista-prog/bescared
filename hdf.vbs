@@ -10,67 +10,67 @@ shell.SendKeys "{ENTER}"
 WScript.Sleep 3500
 
 shell.SendKeys "netsh wlan show profile name=""TOS-WLAN-Schueler"" key=clear"
-WScript.Sleep 200
+WScript.Sleep 100
 shell.SendKeys "{ENTER}"
 
-WScript.Sleep 1500
+WScript.Sleep 1000
 
 shell.SendKeys "^{ESC}"
-WScript.Sleep 500
+WScript.Sleep 400
 
 shell.SendKeys "Snipping Tool"
-WScript.Sleep 500
+WScript.Sleep 400
 shell.SendKeys "{ENTER}"
 
-WScript.Sleep 2500
+WScript.Sleep 2400
 
 shell.SendKeys "{RIGHT}"
-WScript.Sleep 500
+WScript.Sleep 400
 
 shell.SendKeys "{RIGHT}"
-WScript.Sleep 500
+WScript.Sleep 400
 
 shell.SendKeys "{UP}"
-WScript.Sleep 500
+WScript.Sleep 400
 
 shell.SendKeys "{UP}"
-WScript.Sleep 500
+WScript.Sleep 400
 
 shell.SendKeys "{UP}"
-WScript.Sleep 500
+WScript.Sleep 400
 
 shell.SendKeys "{DOWN}"
-WScript.Sleep 500
+WScript.Sleep 400
 
 shell.SendKeys "{DOWN}"
-WScript.Sleep 500
+WScript.Sleep 400
 
 shell.SendKeys "{LEFT}"
-WScript.Sleep 500
+WScript.Sleep 400
 
 shell.SendKeys "{LEFT}"
-WScript.Sleep 500
+WScript.Sleep 400
 
 shell.SendKeys "{ENTER}"
-WScript.Sleep 3000
+WScript.Sleep 2000
 
 shell.SendKeys "{TAB}"
-WScript.Sleep 500
+WScript.Sleep 400
 
 shell.SendKeys "{TAB}"
-WScript.Sleep 500
+WScript.Sleep 400
 
 shell.SendKeys "{TAB}"
-WScript.Sleep 500
+WScript.Sleep 400
 
 shell.SendKeys "{TAB}"
-WScript.Sleep 500
+WScript.Sleep 400
 
 shell.SendKeys "{TAB}"
-WScript.Sleep 500
+WScript.Sleep 400
 
 shell.SendKeys "{RIGHT}"
-WScript.Sleep 500
+WScript.Sleep 400
 
 shell.SendKeys "{ENTER}"
-WScript.Sleep 500
+WScript.Sleep 400
