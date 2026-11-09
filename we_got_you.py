@@ -142,10 +142,13 @@ class WeGotYou:
     def __init__(self):
         """Initialize the display, animation state, and avatar workers."""
         self.screen = None
+        self.display_surface = None
         self.width = 0
         self.height = 0
         self.clock = None
         self.phase = 0.0
+        self.elapsed_seconds = 0.0
+        self.shake_strength = 5
         self.running = False
         self.avatars = {}
         self.avatar_queue = queue.Queue()
@@ -161,6 +164,8 @@ class WeGotYou:
             return
 
         self.width, self.height = self.screen.get_size()
+        self.display_surface = self.screen
+        self.screen = pygame.Surface((self.width, self.height))
         self.clock = pygame.time.Clock()
         self.running = True
         self.stars = [
@@ -214,45 +219,8 @@ class WeGotYou:
                 self.avatars[username] = avatar
 
     def draw_background(self, delta, profile):
-        """Draw the animated background using the current profile colors."""
-        accent = rgb(profile["color"])
-        tint = rgb(profile["glow"])
-        self.screen.fill((8, 7, 10))
-        haze = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-        for layer in range(4):
-            drift = math.sin(self.phase * (0.11 + layer * 0.025) + layer) * self.width * 0.12
-            haze_rect = pygame.Rect(
-                int(self.width * (0.15 + layer * 0.22) + drift),
-                int(self.height * (0.16 + layer * 0.13)),
-                max(1, int(self.width * 0.34)),
-                max(1, int(self.height * 0.06)),
-            )
-            pygame.draw.ellipse(
-                haze,
-                (*tint, 7 + layer * 2),
-                haze_rect,
-            )
-        self.screen.blit(haze, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
-        for band in range(12):
-            offset = math.sin(self.phase * 0.24 + band * 0.65) * 52
-            y = int((self.height * (band + 0.3) / 12 + offset) % self.height)
-            color = tuple(int(channel * 0.24) for channel in tint)
-            pygame.draw.line(self.screen, color, (0, y), (self.width, y - self.height // 10), 1)
-
-        for star in self.stars:
-            star[1] = (star[1] - star[2] * delta) % 1.0
-            x = int(star[0] * self.width + math.sin(self.phase + star[3]) * 16)
-            y = int(star[1] * self.height)
-            brightness = 0.3 + 0.7 * abs(math.sin(self.phase * 1.5 + star[3]))
-            color = tuple(int(channel * brightness) for channel in accent)
-            pygame.draw.circle(self.screen, color, (x, y), 1 if brightness < 0.8 else 2)
-
-        glow = pygame.Surface((320, 320), pygame.SRCALPHA)
-        for radius, alpha in ((156, 5), (118, 8), (76, 11)):
-            pygame.draw.circle(glow, (*tint, alpha), (160, 160), radius)
-        glow_x = int(self.width * 0.68 + math.sin(self.phase * 0.31) * 100)
-        glow_y = int(self.height * 0.56 + math.cos(self.phase * 0.23) * 90)
-        self.screen.blit(glow, (glow_x - 160, glow_y - 160), special_flags=pygame.BLEND_RGBA_ADD)
+        """Clear the frame to a plain black background."""
+        self.screen.fill((0, 0, 0))
 
     def draw_identity(self, profile, index, compact):
         """Draw the profile avatar, name, handle, and sequence number."""
@@ -368,9 +336,6 @@ class WeGotYou:
         panel_width = min(int(self.width * 0.55), 850)
         panel_height = min(int(self.height * 0.52), 430)
         breach = max(0.0, min(1.0, (scene_time - 2.0) / 2.2))
-        shake = int(breach * 5)
-        center_x += int(math.sin(scene_time * 31) * shake)
-        center_y += int(math.cos(scene_time * 27) * shake)
         panel = pygame.Rect(0, 0, panel_width, panel_height)
         panel.center = (center_x, center_y)
         pygame.draw.rect(self.screen, (12, 8, 12), panel, border_radius=12)
@@ -532,7 +497,7 @@ class WeGotYou:
                         (x, eye_y), 3,
                     )
 
-    def draw_final_creature(self, progress):
+    def draw_final_creature(self, progress, center_x_override=None):
         """Bring the creature into the foreground for the final reveal."""
         progress = max(0.0, min(1.35, progress))
         zoom = max(0.0, progress - 1.0)
@@ -541,8 +506,12 @@ class WeGotYou:
         head_h = max(1, int(self.height * (0.32 + progress * 0.62 + zoom * 0.42)))
         head_w = max(1, min(int(self.width * (0.82 + zoom)), int(head_h * 0.78)))
         lunge = max(0.0, progress - 0.78)
-        tremor = 1 if lunge <= 0 else int(math.sin(self.phase * 10.0) * lunge * 7)
-        center_x = self.width // 2 + int(math.sin(self.phase * 2.4) * (1 + progress * 5)) + tremor
+        tremor = 1 if lunge <= 0 else int(math.sin(self.phase * 19.0) * lunge * 18)
+        center_x = (
+            self.width // 2
+            if center_x_override is None
+            else center_x_override
+        ) + int(math.sin(self.phase * 2.4) * (1 + progress * 5)) + tremor
         center_y = int(self.height * 0.52 + math.sin(self.phase * 1.7) * (4 + zoom * 13))
         head = pygame.Rect(0, 0, head_w, head_h)
         head.center = (center_x, center_y)
@@ -752,7 +721,7 @@ class WeGotYou:
         if scene_time > 3.3:
             reveal = (scene_time - 3.3) / 1.4
             if scene_time > 6.15:
-                reveal = 1.0 + (scene_time - 6.15) * 1.0
+                reveal = 1.0 + (scene_time - 6.15) * 2.5
             if scene_time > 6.55:
                 flash = 0.5 + 0.5 * math.sin((scene_time - 6.55) * 18)
                 blackout = pygame.Surface((self.width, self.height))
@@ -793,6 +762,36 @@ class WeGotYou:
             text.set_alpha(170)
             self.screen.blit(text, (34, self.height - 68))
 
+    def draw_jump_scare(self):
+        """Interrupt the scene with irregular, full-screen creature attacks."""
+        scares = (
+            (0.8, 0.30, 0.50),
+            (2.55, 0.24, 0.50),
+            (4.0, 0.32, 0.34),
+            (6.35, 0.24, 0.68),
+            (8.05, 0.36, 0.42),
+            (10.15, 0.30, 0.58),
+        )
+        active_scare = next(
+            (
+                (self.elapsed_seconds - start, duration, position)
+                for start, duration, position in scares
+                if 0 <= self.elapsed_seconds - start < duration
+            ),
+            None,
+        )
+        if active_scare is None:
+            return
+
+        active, _, position = active_scare
+        impact = active < 0.07
+        self.shake_strength = 48 if impact else 24
+        self.screen.fill((225, 0, 18) if impact else (34, 0, 5))
+        self.draw_final_creature(
+            1.35,
+            center_x_override=int(self.width * position),
+        )
+
     def draw(self, delta):
         """Render the current frame and advance animation state."""
         scene_start = 0.0
@@ -804,6 +803,13 @@ class WeGotYou:
         scene_time = self.phase - scene_start
         profile = PROFILES[scene_index]
         compact = self.width < 900
+        self.shake_strength = 5
+        if scene_index == 1 and scene_time > 2.0:
+            self.shake_strength = 10
+        elif scene_index == 2:
+            self.shake_strength = 12 + int(min(scene_time, 6.0) * 2)
+            if scene_time > 6.15:
+                self.shake_strength = 30
         self.draw_background(delta, profile)
 
         final_reveal = scene_index == 2 and scene_time > 3.3
@@ -835,6 +841,7 @@ class WeGotYou:
         self.draw_horror_overlay(scene_index, scene_time)
         self.draw_signal_warning(scene_index, scene_time)
         self.draw_vignette(scene_index, scene_time)
+        self.draw_jump_scare()
         alert_color = (255, 28, 34) if int(self.phase * 0.65) % 2 else (74, 8, 16)
         pygame.draw.circle(self.screen, alert_color, (30, 34), 5)
         self.draw_text("LIVE", (70, 34), 11, (221, 151, 148), True)
@@ -868,7 +875,18 @@ class WeGotYou:
                     self.running = False
             self.collect_avatars()
             self.draw(delta)
+            shake_x = int(
+                math.sin(self.phase * 47) * self.shake_strength
+                + random.uniform(-self.shake_strength * 0.45, self.shake_strength * 0.45)
+            )
+            shake_y = int(
+                math.cos(self.phase * 41) * self.shake_strength
+                + random.uniform(-self.shake_strength * 0.45, self.shake_strength * 0.45)
+            )
+            self.display_surface.fill((0, 0, 0))
+            self.display_surface.blit(self.screen, (shake_x, shake_y))
             pygame.display.flip()
+            self.elapsed_seconds += delta
             if self.phase >= sum(SCENE_DURATIONS):
                 sequence_finished = True
                 self.running = False
